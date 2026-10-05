@@ -1,0 +1,24 @@
+# 微信小程序
+node_modules/
+.vscode/
+.idea/
+*.bak
+.DS_Store
+
+# 本地配置（不要提交到仓库）
+.env
+config.local.js
+config.local.json
+/config.json
+
+# 云开发日志
+*.log
+logs/
+
+# 编译产物
+dist/
+
+# 微信开发者工具缓存
+/project.private.config.json
+/cloudfunctions/**/node_modules/
+/miniprogram_npm/
