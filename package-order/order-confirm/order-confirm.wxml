@@ -1,0 +1,68 @@
+<view class="confirm-page">
+  <view wx:if="{{loading}}" class="state-panel">正在核对最新菜单...</view>
+
+  <block wx:else>
+    <view wx:if="{{cart.length === 0}}" class="empty-panel">
+      <text class="empty-title">点菜单为空</text>
+      <text class="empty-description">返回菜单挑选想吃的菜和饮品吧。</text>
+    </view>
+
+    <block wx:else>
+      <view class="section">
+        <view class="section-title">点菜单</view>
+        <view wx:for="{{displayItems}}" wx:key="cartItemId" class="confirm-item">
+          <image class="item-cover" src="{{item.displayCover || '/images/default-dish.png'}}" mode="aspectFill" binderror="onItemImageError" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover || '/images/default-dish.png'}}" bindload="onCachedImageLoad"></image>
+          <view class="item-main">
+            <text class="item-name">{{item.name}}</text>
+            <text wx:if="{{item.summaryText}}" class="item-summary">{{item.summaryText}}</text>
+            <text wx:if="{{item.unitPrice !== null}}" class="item-price">¥{{item.unitPriceText}} × {{item.quantity}}</text>
+            <text wx:else class="item-price item-unpriced">未标价 × {{item.quantity}}</text>
+            <text wx:if="{{item.subtotalText}}" class="item-subtotal">小计 ¥{{item.subtotalText}}</text>
+            <text wx:if="{{item.issueText}}" class="item-issue">{{item.issueText}}</text>
+            <view class="item-bottom-row">
+              <view class="item-links">
+                <text class="modify-link" data-cartitemid="{{item.cartItemId}}" bindtap="modifyItem">修改</text>
+                <text class="remove-link" data-cartitemid="{{item.cartItemId}}" bindtap="removeItem">删除</text>
+              </view>
+              <view class="quantity-stepper quantity-control">
+                <button class="quantity-circle" data-cartitemid="{{item.cartItemId}}" bindtap="decreaseQuantity">-</button>
+                <text class="quantity-value">{{item.quantity}}</text>
+                <button class="quantity-circle" data-cartitemid="{{item.cartItemId}}" bindtap="increaseQuantity">+</button>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-title-row">
+          <view class="section-title">整单备注</view>
+          <text class="note-counter">{{orderNoteLength}} / {{maxOrderNoteLength}}</text>
+        </view>
+        <textarea
+          class="order-note"
+          value="{{orderNote}}"
+          maxlength="{{maxOrderNoteLength}}"
+          bindinput="onOrderNoteInput"
+          placeholder="例如：今天三个人吃、我到了再开始做"
+        ></textarea>
+        <text class="note-tip">商品自己的甜度、口味和特殊需求已保存在各商品规格中。</text>
+      </view>
+
+      <view wx:if="{{validationMessage}}" class="validation-message">{{validationMessage}}</view>
+    </block>
+  </block>
+
+  <view class="confirm-footer">
+    <view class="confirm-total">
+      <text>共 {{itemCount}} 件</text>
+      <text class="confirm-amount">合计 ¥{{displayTotalAmountText}}</text>
+    </view>
+    <button
+      class="submit-button {{canSubmit ? 'active' : ''}}"
+      disabled="{{!canSubmit}}"
+      loading="{{submitting}}"
+      bindtap="onSubmitOrderDraft"
+    >{{submitting ? '提交中...' : '提交点菜单'}}</button>
+  </view>
+</view>

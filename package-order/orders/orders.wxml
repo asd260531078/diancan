@@ -1,0 +1,59 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state-panel">正在读取点菜单...</view>
+  <view wx:elif="{{errorMessage}}" class="error-panel">
+    <text>{{errorMessage}}</text>
+    <view class="retry-button" bindtap="loadOrders">重新加载</view>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{orders.length > 0}}" class="order-list">
+      <view wx:for="{{orders}}" wx:key="id" class="order-card" bindtap="goDetail" data-orderid="{{item.id}}">
+        <view class="order-header">
+          <view class="order-heading-copy">
+            <text class="order-display-title">{{item.displayTitle}}</text>
+            <text class="order-meta">{{item.orderNo}}<text wx:if="{{item.createdAtText}}"> · {{item.createdAtText}}</text></text>
+          </view>
+          <text class="status-tag status-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <view class="order-items">
+          <order-item-row wx:for="{{item.items}}" wx:for-item="food" wx:key="orderItemId" item="{{food}}" />
+        </view>
+        <view wx:if="{{item.orderNote}}" class="order-note">备注：{{item.orderNote}}</view>
+        <view class="order-footer">
+          <view>
+            <text class="order-count">共 {{item.itemCount}} 件</text>
+            <text class="order-total">合计 ¥{{item.totalAmountText}}</text>
+            <text wx:if="{{item.hasUnpricedItems}}" class="unpriced-tip">部分商品未标价</text>
+          </view>
+          <view class="order-actions">
+            <view wx:if="{{item.status === 'pending'}}" class="cancel-button" catchtap="cancelOrder" data-orderid="{{item.id}}">取消订单</view>
+            <text class="detail-link">查看详情 ›</text>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{hasMore}}" class="load-more" bindtap="loadMore">{{loadingMore ? '加载中...' : '加载更多'}}</view>
+    </view>
+
+    <view wx:if="{{orders.length === 0 && legacyOrders.length === 0}}" class="empty-panel">
+      <text class="empty-title">还没有点菜单哦</text>
+      <text class="empty-description">去菜单挑选家人想吃的菜和饮品吧。</text>
+    </view>
+
+    <view wx:if="{{legacyOrders.length > 0}}" class="legacy-section">
+      <view class="legacy-heading">
+        <text>本机旧订单</text>
+        <text class="legacy-tip">只读，不会上传云端</text>
+      </view>
+      <view wx:for="{{legacyOrders}}" wx:key="id" class="legacy-card">
+        <view class="order-header">
+          <view class="order-heading-copy">
+            <text class="order-display-title">{{item.displayTitle}}</text>
+            <text class="order-meta">{{item.orderNo}}<text wx:if="{{item.createdAtText}}"> · {{item.createdAtText}}</text></text>
+          </view>
+          <text class="status-tag status-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <order-item-row wx:for="{{item.items}}" wx:for-item="food" wx:key="orderItemId" item="{{food}}" show-price="{{false}}" />
+      </view>
+    </view>
+  </block>
+</view>

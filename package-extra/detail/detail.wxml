@@ -1,0 +1,160 @@
+<!-- package-extra/detail/detail.wxml -->
+<view class='page'>
+  <block wx:if='{{detailMode}}'>
+    <view wx:if='{{detailLoading}}' class='detail-state'>正在加载详情...</view>
+    <view wx:elif='{{detailNotFound}}' class='detail-state'>
+      <text class="detail-state-text">该菜品已下架</text>
+      <button class="detail-back-button" bindtap="goBackToMenu">返回菜单</button>
+    </view>
+    <block wx:elif='{{singleDish}}'>
+      <image class='detail-cover' src='{{singleDish.displayCover}}' mode='aspectFill' binderror='onCoverError' data-cover='{{singleDish.cover || singleDish.legacyCover || singleDish.image}}' data-src='{{singleDish.displayCover}}' bindload='onCachedImageLoad'></image>
+      <view class='detail-main section'>
+        <view class='detail-title-row'>
+          <text class='detail-name'>{{singleDish.name}}</text>
+          <text wx:if='{{detailHasPrice}}' class='detail-price'>¥{{singleDish.price}}</text>
+        </view>
+        <view wx:if='{{singleDish.restrictionText || singleDish.signature || singleDish.recommended || detailSpicyText || detailIsAdminPreview}}' class='detail-status-list'>
+          <text wx:if='{{singleDish.restrictionText}}' class='detail-status {{singleDish.restrictionKey === "soldOut" ? "sold-out" : "unavailable"}}'>{{singleDish.restrictionText}}</text>
+          <text wx:if='{{singleDish.signature}}' class='detail-status signature'>招牌</text>
+          <text wx:if='{{singleDish.recommended}}' class='detail-status recommended'>推荐</text>
+          <text wx:if='{{detailSpicyText}}' class='detail-status spicy'>{{detailSpicyText}}</text>
+          <text wx:if='{{detailIsAdminPreview}}' class='detail-status admin-preview'>管理员预览</text>
+        </view>
+        <text wx:if='{{singleDish.description}}' class='detail-description'>{{singleDish.description}}</text>
+        <view wx:if='{{singleDish.estimatedTime || singleDish.servingSize || detailSpicyLabel}}' class='detail-meta-list'>
+          <text wx:if='{{singleDish.estimatedTime}}' class='detail-meta'>预计制作：{{singleDish.estimatedTime}}</text>
+          <text wx:if='{{singleDish.servingSize}}' class='detail-meta'>建议人数：{{singleDish.servingSize}}</text>
+          <text wx:if='{{detailSpicyLabel}}' class='detail-meta'>辣度：{{detailSpicyLabel}}</text>
+        </view>
+        <view wx:if='{{singleDish.tags.length > 0}}' class='detail-tag-list'>
+          <text wx:for='{{singleDish.tags}}' wx:key='*this' class='detail-tag'>{{item}}</text>
+        </view>
+      </view>
+
+      <view wx:if='{{singleDish.type === "drink" && drinkSpecRows.length > 0}}' class='section drink-options-section'>
+        <view class='section-title'>饮品规格</view>
+        <view wx:for='{{drinkSpecRows}}' wx:key='key' class='detail-option-row'>
+          <text class='detail-option-label'>{{item.label}}</text>
+          <view class='detail-option-values'>
+            <text wx:for='{{item.values}}' wx:for-item='value' wx:key='*this' class='detail-option'>{{value}}</text>
+          </view>
+        </view>
+        <view class='readonly-tip'>本页面仅展示支持的规格，点单选择将在后续购物车阶段开放。</view>
+      </view>
+
+      <view wx:if='{{singleDish.ingredients.length > 0}}' class='section recipe-detail-section'>
+        <view class='section-title'>{{singleDish.type === 'drink' ? '原料' : '食材'}}</view>
+        <view class='ingredient-detail-list'>
+          <view wx:for='{{singleDish.ingredients}}' wx:for-item='ingredient' wx:key='id' class='ingredient-detail-item'>
+            <view class='ingredient-main-row'>
+              <text class='ingredient-name'>{{ingredient.name}}</text>
+              <text wx:if='{{ingredient.amount}}' class='ingredient-amount'>{{ingredient.amount}}</text>
+            </view>
+            <text wx:if='{{ingredient.note}}' class='ingredient-note'>{{ingredient.note}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if='{{singleDish.steps.length > 0}}' class='section recipe-detail-section'>
+        <view class='section-title'>制作步骤</view>
+        <view class='step-detail-list'>
+          <view wx:for='{{singleDish.steps}}' wx:for-item='step' wx:key='id' class='step-detail-item'>
+            <view class='step-detail-heading'>
+              <text class='step-detail-number'>步骤 {{index + 1}}</text>
+              <text wx:if='{{step.title}}' class='step-detail-title'>{{step.title}}</text>
+            </view>
+            <text class='step-detail-description'>{{step.description}}</text>
+            <image wx:if='{{step.displayImage}}' class='step-detail-image' src='{{step.displayImage}}' mode='widthFix' data-index='{{index}}' binderror='onStepImageError' data-cover='{{step.image}}' data-src='{{step.displayImage}}' data-fallback='' bindload='onCachedImageLoad'></image>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if='{{singleDish.tips}}' class='section recipe-detail-section'>
+        <view class='section-title'>制作技巧</view>
+        <text class='recipe-tips'>{{singleDish.tips}}</text>
+      </view>
+
+      <view class='section detail-order-placeholder'>
+        <view class='section-title'>点菜单</view>
+        <button
+          wx:if='{{singleDish.type === "drink"}}'
+          class='detail-order-button {{detailCanOrder ? "detail-order-button-active" : ""}}'
+          disabled='{{!detailCanOrder}}'
+          bindtap='openDrinkOptionsFromDetail'
+        >加入点菜单</button>
+        <button
+          wx:else
+          class='detail-order-button {{detailCanOrder ? "detail-order-button-active" : ""}}'
+          disabled='{{!detailCanOrder}}'
+          bindtap='openFoodOptionsFromDetail'
+        >加入点菜单</button>
+        <text wx:if='{{singleDish.restrictionText}}' class='detail-order-tip'>当前状态：{{singleDish.restrictionText}}</text>
+        <text wx:elif='{{singleDish.type === "drink"}}' class='detail-order-tip'>选择饮品规格后加入点菜单，不会在本阶段提交订单。</text>
+        <text wx:else class='detail-order-tip'>如有可选口味或特殊要求，选择后加入点菜单。</text>
+      </view>
+    </block>
+  </block>
+
+  <block wx:else>
+  <view class='section'>
+    <view class='section-title'>🍽️ 已选菜品</view>
+    <view class='dish-list'>
+      <view wx:for='{{dishes}}' wx:key='dishId' class='dish-item'>
+        <image class='dish-thumb' src='{{item.displayImage}}' mode='aspectFill' data-cover='{{item.image}}' data-src='{{item.displayImage}}' binderror='onCachedImageError' bindload='onCachedImageLoad'></image>
+        <view class='dish-info'>
+          <text class='dish-name'>{{item.name}}</text>
+          <text wx:if='{{item.summaryText}}' class='dish-summary'>{{item.summaryText}}</text>
+          <text wx:if='{{item.price !== null && item.price !== undefined}}' class='dish-price'>¥{{item.price}} × {{item.num || 1}}</text>
+          <text wx:else class='dish-price'>未标价 × {{item.num || 1}}</text>
+        </view>
+        <text wx:if='{{item.price !== null && item.price !== undefined}}' class='dish-subtotal'>¥{{item.price * (item.num || 1)}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class='section'>
+    <view class='section-title'>💬 备注</view>
+    <input 
+      class='input' 
+      placeholder='有什么想吃的可以告诉我哦～比如"少盐""加辣"'
+      value='{{note}}'
+      bindinput='onNoteInput'
+    />
+  </view>
+
+  <view class='section'>
+    <view class='section-title'>📍 送餐地点</view>
+    <view class='address-picker'>
+      <input 
+        class='input {{address ? "" : "input-empty"}}' 
+        placeholder='在哪里吃呢？'
+        value='{{address}}'
+        bindinput='onAddressInput'
+      />
+      <view class='choose-address-btn' bindtap='chooseAddress'>📍 获取地址</view>
+    </view>
+  </view>
+
+  <view class='footer'>
+    <view class='total'>
+      <text>合计: </text>
+      <text class='price'>¥{{totalPrice}}</text>
+    </view>
+    <view wx:if='{{isOrderView}}' class='readonly-order-tip'>本机旧订单仅供查看</view>
+    <view wx:else class='submit-btn submit-btn-disabled' hover-class='none' bindtap='submitOrder'>3D 开放正式提交</view>
+  </view>
+  </block>
+
+  <drink-option-sheet
+    visible='{{drinkOptionVisible}}'
+    dish='{{singleDish}}'
+    bindclose='closeDrinkOptions'
+    bindconfirm='onDrinkOptionsConfirm'
+  />
+  <food-option-sheet
+    visible='{{foodOptionVisible}}'
+    dish='{{singleDish}}'
+    bindclose='closeFoodOptions'
+    bindconfirm='onFoodOptionsConfirm'
+  />
+</view>

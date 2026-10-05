@@ -1,0 +1,58 @@
+{
+  "pages": [
+    "pages/menu/menu",
+    "pages/profile/profile"
+  ],
+  "subPackages": [
+    {
+      "root": "package-order",
+      "pages": [
+        "order-confirm/order-confirm",
+        "orders/orders",
+        "order-detail/order-detail"
+      ]
+    },
+    {
+      "root": "package-admin",
+      "pages": [
+        "manage/manage",
+        "category-manage/category-manage",
+        "dish-edit/dish-edit",
+        "manage-orders/manage-orders",
+        "meal-set-manage/meal-set-manage",
+        "meal-set-edit/meal-set-edit"
+      ]
+    },
+    {
+      "root": "package-extra",
+      "pages": [
+        "detail/detail",
+        "meal-random/meal-random",
+        "meal-sets/meal-sets",
+        "meal-set-detail/meal-set-detail"
+      ]
+    }
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#F6F0E6",
+    "navigationBarTitleText": "小高の食堂",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#A89684",
+    "selectedColor": "#6F472D",
+    "list": [{
+      "pagePath": "pages/menu/menu",
+      "text": "首页"
+    }, {
+      "pagePath": "pages/profile/profile",
+      "text": "我的"
+    }]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json",
+  "cloud": true
+}

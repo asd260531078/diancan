@@ -1,0 +1,43 @@
+<view class="page has-action-bar">
+  <view wx:if="{{loading}}" class="state">正在读取套餐…</view>
+  <view wx:elif="{{errorMessage}}" class="state error-state">
+    <text>{{errorMessage}}</text>
+    <button class="retry-button" bindtap="onRetryLoad">重新加载</button>
+  </view>
+  <view wx:elif="{{!mealSet}}" class="state">套餐不存在或已停用</view>
+  <block wx:else>
+    <image class="hero-cover" src="{{mealSet.displayCover}}" mode="aspectFill" data-cover="{{mealSet.cover || mealSet.legacyCover || mealSet.image}}" data-src="{{mealSet.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+    <view class="intro">
+      <view class="name-row"><text class="name">{{mealSet.name}}</text><text wx:if="{{mealSet.recommended}}" class="recommended">小高推荐</text></view>
+      <text wx:if="{{mealSet.description}}" class="description">{{mealSet.description}}</text>
+      <view wx:if="{{mealSet.tags.length}}" class="tags"><text wx:for="{{mealSet.tags}}" wx:key="*this" class="tag">{{item}}</text></view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">套餐内容</text>
+      <view wx:for="{{mealSet.items}}" wx:key="dishId" class="item-card" data-id="{{item.dish ? item.dishId : ''}}" bindtap="goDishDetail">
+        <image src="{{item.displayCover}}" mode="aspectFill" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+        <view class="item-main">
+          <text class="item-name">{{item.name}}</text>
+          <text wx:if="{{item.unitPrice !== null}}" class="item-price">¥{{item.unitPrice}} × {{item.quantity}}</text>
+          <text wx:else class="item-price unpriced">未标价 × {{item.quantity}}</text>
+          <text wx:if="{{item.statusText}}" class="item-status">{{item.statusText}}</text>
+        </view>
+        <text class="quantity">×{{item.quantity}}</text>
+      </view>
+    </view>
+
+      <view class="total-card"><text>共 {{mealSet.itemCount}} 件</text><text class="total-amount {{mealSet.hasUnpricedItems && mealSet.displayTotalAmount === 0 ? 'unpriced' : ''}}">{{mealSet.displayTotalText}}</text></view>
+    <view wx:if="{{!mealSet.canOrder}}" class="warning-panel">
+      <text class="warning-title">当前有商品不可点</text>
+      <text wx:for="{{mealSet.invalidItems}}" wx:key="dishId">{{item.name}}：{{item.statusText}}</text>
+    </view>
+  </block>
+
+  <view wx:if="{{mealSet && !loading}}" class="action-bar">
+    <button class="accept-button" bindtap="onAcceptSet" loading="{{committing}}" disabled="{{!mealSet.canOrder || committing || batchActive}}">{{mealSet.canOrder ? '就吃这套' : '暂时无法点这套'}}</button>
+  </view>
+
+  <drink-option-sheet visible="{{drinkOptionVisible}}" dish="{{drinkOptionDish}}" initial-quantity="{{currentOptionQuantity}}" confirm-text="确认并继续" bindclose="cancelBatch" bindconfirm="onDrinkConfirm"></drink-option-sheet>
+  <food-option-sheet visible="{{foodOptionVisible}}" dish="{{foodOptionDish}}" initial-quantity="{{currentOptionQuantity}}" confirm-text="确认并继续" bindclose="cancelBatch" bindconfirm="onFoodConfirm"></food-option-sheet>
+</view>

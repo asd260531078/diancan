@@ -1,0 +1,366 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state-panel">正在读取云端数据...</view>
+
+  <block wx:elif="{{isAdmin}}">
+    <view class="notice">菜品与饮品共用同一份数据结构；饮品甜度和冰量将在阶段 2C 配置。</view>
+
+    <view class="section">
+      <view class="section-title">基础信息</view>
+      <view class="field required">
+        <text class="label">名称</text>
+        <input class="control" data-field="name" value="{{form.name}}" bindinput="onFieldInput" maxlength="100" />
+      </view>
+
+      <view class="field required">
+        <text class="label">类型</text>
+        <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="picker-control">{{form.type === 'drink' ? '饮品' : '菜品'}}</view>
+        </picker>
+      </view>
+
+      <view class="field required">
+        <text class="label">分类</text>
+        <picker mode="selector" range="{{availableCategories}}" range-key="displayName" bindchange="onCategoryChange">
+          <view class="picker-control {{form.categoryId ? '' : 'placeholder'}}">{{form.categoryName || '请选择分类'}}</view>
+        </picker>
+        <text wx:if="{{availableCategories.length === 0}}" class="field-tip error-text">当前类型没有可用分类，请先完成分类配置。</text>
+      </view>
+
+      <view class="field">
+        <text class="label">主图</text>
+        <view class="cover-row">
+          <view class="cover-box" bindtap="onChooseCover">
+            <image wx:if="{{form.cover || form.legacyCover}}" class="cover-image" src="{{form.displayCover}}" mode="aspectFill" data-cover="{{form.cover || form.legacyCover || form.image}}" data-src="{{form.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad" />
+            <view wx:else class="upload-placeholder">
+              <text class="upload-plus">＋</text>
+              <text>上传主图</text>
+            </view>
+          </view>
+          <view class="cover-actions">
+            <button class="small-button" bindtap="onChooseCover" loading="{{uploading}}">{{form.cover ? '替换主图' : '选择图片'}}</button>
+            <text class="field-tip">支持 JPG、PNG、WebP，单张不超过 5MB。</text>
+            <text wx:if="{{form.legacyCover && !form.cover}}" class="field-tip error-text">当前是旧图片地址，仅供预览；保存前必须重新上传到云存储。</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="label-row">
+          <text class="label">其他图片</text>
+          <text class="counter">{{form.images.length}} / 6</text>
+        </view>
+        <view class="image-grid">
+          <view wx:for="{{form.images}}" wx:key="*this" class="image-item">
+            <image class="other-image" src="{{form.displayImages[index]}}" mode="aspectFill" bindtap="onPreviewImage" data-url="{{item}}" data-cover="{{item}}" data-src="{{form.displayImages[index]}}" binderror="onCachedImageError" bindload="onCachedImageLoad" />
+            <view class="remove-image" catchtap="onRemoveImage" data-index="{{index}}">×</view>
+          </view>
+          <view wx:if="{{form.images.length < 6}}" class="add-image" bindtap="onAddImages">
+            <text class="upload-plus">＋</text>
+            <text>添加</text>
+          </view>
+        </view>
+        <text wx:if="{{form.legacyImagesCount > 0}}" class="field-tip error-text">有 {{form.legacyImagesCount}} 张旧地址图片未载入，请重新上传后再保存。</text>
+      </view>
+
+      <view class="field">
+        <text class="label">简介</text>
+      <textarea class="control textarea" data-field="description" value="{{form.description}}" bindinput="onFieldInput" maxlength="1000" auto-height />
+      </view>
+
+      <view class="field">
+        <text class="label">价格</text>
+        <input class="control" data-field="price" value="{{form.price}}" bindinput="onFieldInput" type="digit" />
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">菜品属性</view>
+      <view class="field">
+        <text class="label">标签</text>
+      <input class="control" data-field="tagsText" value="{{form.tagsText}}" bindinput="onFieldInput" maxlength="500" />
+        <text class="field-tip">使用中文逗号、英文逗号或换行分隔。</text>
+      </view>
+
+      <view class="field">
+        <text class="label">预计制作时间</text>
+      <input class="control" data-field="estimatedTime" value="{{form.estimatedTime}}" bindinput="onFieldInput" maxlength="50" />
+      </view>
+
+      <view class="field">
+        <text class="label">建议人数</text>
+      <input class="control" data-field="servingSize" value="{{form.servingSize}}" bindinput="onFieldInput" maxlength="50" />
+      </view>
+
+      <view wx:if="{{form.type === 'food'}}" class="field">
+        <text class="label">辣度</text>
+        <picker mode="selector" range="{{spicyOptions}}" range-key="label" value="{{spicyIndex}}" bindchange="onSpicyChange">
+          <view class="picker-control">{{form.spicyLevel === 'mild' ? '微辣' : form.spicyLevel === 'medium' ? '中辣' : form.spicyLevel === 'hot' ? '重辣' : '不辣'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <view wx:if="{{form.type === 'drink'}}" class="section drink-spec-section">
+      <view class="section-title">饮品规格</view>
+      <view class="section-description">只勾选这杯饮品实际支持的选项；全部不选表示固定配方、不提供该项选择。</view>
+
+      <view class="spec-block">
+        <text class="spec-title">杯型</text>
+        <checkbox-group class="option-grid" data-field="availableCupSizes" bindchange="onDrinkOptionChange">
+          <label wx:for="{{cupSizeOptions}}" wx:key="name" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+        <view class="custom-topping-area">
+          <text class="spec-subtitle">自定义杯型</text>
+          <view class="custom-topping-input-row">
+          <input class="control custom-topping-input" value="{{customCupSizeInput}}" bindinput="onCustomCupSizeInput" maxlength="50" />
+            <button class="add-custom-button" bindtap="onAddCustomCupSize">＋ 添加</button>
+          </view>
+          <view wx:if="{{customCupSizes.length > 0}}" class="custom-topping-list">
+            <view wx:for="{{customCupSizes}}" wx:key="*this" class="custom-topping-tag">
+              <text>{{item}}</text>
+              <text class="remove-custom" bindtap="onRemoveCustomCupSize" data-name="{{item}}">×</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="spec-block">
+        <text class="spec-title">甜度</text>
+        <checkbox-group class="option-grid" data-field="availableSugarLevels" bindchange="onDrinkOptionChange">
+          <label wx:for="{{sugarOptions}}" wx:key="name" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+      </view>
+
+      <view class="spec-block">
+        <text class="spec-title">温度</text>
+        <checkbox-group class="option-grid" data-field="availableTemperatures" bindchange="onDrinkOptionChange">
+          <label wx:for="{{temperatureOptions}}" wx:key="name" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+      </view>
+
+      <view class="spec-block">
+        <text class="spec-title">甜味来源 / 糖浆</text>
+        <checkbox-group class="option-grid" data-field="availableSweetenerTypes" bindchange="onDrinkOptionChange">
+          <label wx:for="{{sweetenerOptions}}" wx:key="name" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+      </view>
+
+      <view class="spec-block toppings-block">
+        <text class="spec-title">可选小料</text>
+        <view wx:for="{{toppingGroups}}" wx:key="key" class="topping-group">
+          <view class="topping-group-header" bindtap="onToggleToppingGroup" data-key="{{item.key}}">
+            <view>
+              <text class="topping-group-name">{{item.name}}</text>
+              <text wx:if="{{item.selectedCount > 0}}" class="selected-count">已选 {{item.selectedCount}}</text>
+            </view>
+            <text class="expand-icon">{{item.expanded ? '收起' : '展开'}}</text>
+          </view>
+          <checkbox-group wx:if="{{item.expanded}}" class="option-grid topping-options" data-key="{{item.key}}" bindchange="onToppingGroupChange">
+            <label wx:for="{{item.options}}" wx:for-item="option" wx:key="name" class="option-item {{option.checked ? 'option-selected' : ''}}">
+              <checkbox value="{{option.name}}" checked="{{option.checked}}" color="#E85B3F" />
+              <text>{{option.name}}</text>
+            </label>
+          </checkbox-group>
+        </view>
+
+        <view class="custom-topping-area">
+          <text class="spec-subtitle">自定义小料</text>
+          <view class="custom-topping-input-row">
+          <input class="control custom-topping-input" value="{{customToppingInput}}" bindinput="onCustomToppingInput" maxlength="50" />
+            <button class="add-custom-button" bindtap="onAddCustomTopping">＋ 添加</button>
+          </view>
+          <view wx:if="{{customToppings.length > 0}}" class="custom-topping-list">
+            <view wx:for="{{customToppings}}" wx:key="*this" class="custom-topping-tag">
+              <text>{{item}}</text>
+              <text class="remove-custom" bindtap="onRemoveCustomTopping" data-name="{{item}}">×</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section meal-role-section">
+      <view class="section-title">餐食角色</view>
+      <view wx:if="{{form.type === 'drink'}}" class="section-description">饮品会自动作为“饮品”参与今天吃什么，无需重复配置。</view>
+      <view wx:if="{{form.type === 'drink'}}" class="option-grid">
+        <view class="option-item option-selected role-readonly">饮品</view>
+      </view>
+      <block wx:else>
+        <view class="section-description">可多选，用于“今天吃什么”按主菜、配菜、主食、汤和甜品进行搭配；不影响正常菜单展示。</view>
+        <checkbox-group class="option-grid" bindchange="onMealRolesChange">
+          <label wx:for="{{mealRoleOptions}}" wx:key="value" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.value}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.label}}</text>
+          </label>
+        </checkbox-group>
+      </block>
+    </view>
+
+    <view wx:if="{{form.type === 'food'}}" class="section food-option-section">
+      <view class="section-title">点单口味设置</view>
+      <view class="section-description">只勾选这道菜允许家人选择的口味和特殊要求；全部不选时将直接加入点菜单。</view>
+
+      <view class="spec-block">
+        <text class="spec-title">可选口味</text>
+        <checkbox-group class="option-grid" data-field="availableTastePreferences" bindchange="onFoodOptionChange">
+          <label wx:for="{{tastePreferenceOptions}}" wx:key="name" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+        <text class="field-tip">管理员可配置多个候选项，家人点菜时只能选择其中一个。</text>
+      </view>
+
+      <view class="spec-block">
+        <text class="spec-title">可选特殊需求</text>
+        <checkbox-group class="option-grid" data-field="availableCustomRequests" bindchange="onFoodOptionChange">
+          <label wx:for="{{customRequestOptions}}" wx:key="name" class="option-item {{item.checked ? 'option-selected' : ''}}">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" color="#E85B3F" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+
+        <view class="custom-topping-area">
+          <text class="spec-subtitle">自定义需求</text>
+          <view class="custom-topping-input-row">
+            <input class="control custom-topping-input" value="{{customFoodRequestInput}}" bindinput="onCustomFoodRequestInput" maxlength="50" />
+            <button class="add-custom-button" bindtap="onAddCustomFoodRequest">＋ 添加</button>
+          </view>
+          <view wx:if="{{customFoodRequests.length > 0}}" class="custom-topping-list">
+            <view wx:for="{{customFoodRequests}}" wx:key="*this" class="custom-topping-tag">
+              <text>{{item}}</text>
+              <text class="remove-custom" bindtap="onRemoveCustomFoodRequest" data-name="{{item}}">×</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section recipe-section">
+      <view class="section-heading-row">
+        <view>
+          <view class="section-title">{{form.type === 'drink' ? '原料' : '食材'}}</view>
+          <view class="section-description">逐项填写名称、用量和可选备注，保存顺序就是详情页展示顺序。</view>
+        </view>
+        <button class="small-add-button" bindtap="onAddIngredient">＋ 添加{{form.type === 'drink' ? '原料' : '食材'}}</button>
+      </view>
+
+      <view wx:if="{{form.ingredients.length === 0}}" class="recipe-empty">还没有{{form.type === 'drink' ? '原料' : '食材'}}，点击右上角添加。</view>
+      <view wx:for="{{form.ingredients}}" wx:for-item="ingredient" wx:key="id" class="ingredient-card">
+        <view class="card-header">
+          <text class="card-index">{{form.type === 'drink' ? '原料' : '食材'}} {{index + 1}}</text>
+          <button class="delete-action" data-index="{{index}}" bindtap="onDeleteIngredient">删除</button>
+        </view>
+        <view class="reorder-actions">
+          <button class="text-action" data-index="{{index}}" data-direction="up" bindtap="onMoveIngredient" disabled="{{index === 0}}">上移</button>
+          <button class="text-action" data-index="{{index}}" data-direction="down" bindtap="onMoveIngredient" disabled="{{index === form.ingredients.length - 1}}">下移</button>
+        </view>
+        <view class="recipe-grid">
+          <view class="field compact-field">
+            <text class="label">名称 *</text>
+          <input class="control" data-index="{{index}}" data-field="name" value="{{ingredient.name}}" bindinput="onIngredientInput" maxlength="100" />
+          </view>
+          <view class="field compact-field">
+            <text class="label">用量</text>
+          <input class="control" data-index="{{index}}" data-field="amount" value="{{ingredient.amount}}" bindinput="onIngredientInput" maxlength="50" />
+          </view>
+        </view>
+        <view class="field compact-field">
+          <text class="label">备注（可选）</text>
+          <input class="control" data-index="{{index}}" data-field="note" value="{{ingredient.note}}" bindinput="onIngredientInput" maxlength="300" />
+        </view>
+      </view>
+    </view>
+
+    <view class="section recipe-section">
+      <view class="section-heading-row">
+        <view>
+          <view class="section-title">制作步骤</view>
+          <view class="section-description">步骤说明必填；可添加标题和步骤图片，使用上移、下移调整顺序。</view>
+        </view>
+        <button class="small-add-button" bindtap="onAddStep">＋ 添加步骤</button>
+      </view>
+
+      <view wx:if="{{form.steps.length === 0}}" class="recipe-empty">还没有制作步骤，点击右上角添加。</view>
+      <view wx:for="{{form.steps}}" wx:for-item="step" wx:key="id" class="step-card">
+        <view class="card-header">
+          <text class="step-number">步骤 {{index + 1}}</text>
+          <button class="delete-action" data-index="{{index}}" bindtap="onDeleteStep">删除</button>
+        </view>
+        <view class="reorder-actions">
+          <button class="text-action" data-index="{{index}}" data-direction="up" bindtap="onMoveStep" disabled="{{index === 0}}">上移</button>
+          <button class="text-action" data-index="{{index}}" data-direction="down" bindtap="onMoveStep" disabled="{{index === form.steps.length - 1}}">下移</button>
+        </view>
+        <view class="field compact-field">
+          <text class="label">步骤标题（可选）</text>
+          <input class="control" data-index="{{index}}" data-field="title" value="{{step.title}}" bindinput="onStepInput" maxlength="100" />
+        </view>
+        <view class="field compact-field">
+          <text class="label">步骤说明 *</text>
+          <textarea class="control textarea step-description" data-index="{{index}}" data-field="description" value="{{step.description}}" bindinput="onStepInput" maxlength="1000" auto-height />
+        </view>
+        <view class="step-image-editor">
+          <image wx:if="{{step.displayImage}}" class="step-image-preview" src="{{step.displayImage}}" mode="aspectFill" data-url="{{step.image}}" bindtap="onPreviewStepImage" data-cover="{{step.image}}" data-src="{{step.displayImage}}" binderror="onCachedImageError" data-fallback="" bindload="onCachedImageLoad"></image>
+          <view class="step-image-actions">
+            <button class="secondary-button" data-index="{{index}}" bindtap="onChooseStepImage">{{step.image ? '替换步骤图片' : '上传步骤图片'}}</button>
+            <button wx:if="{{step.image}}" class="secondary-button danger-outline" data-index="{{index}}" bindtap="onRemoveStepImage">移除图片</button>
+          </view>
+          <text wx:if="{{step.image}}" class="field-tip">已保存为云存储 fileID；替换失败时会保留当前图片。</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">制作技巧</view>
+      <view class="section-description">记录火候、容易失败的地方或饮品制作注意事项。</view>
+      <view class="field">
+      <textarea class="control textarea tips-textarea" data-field="tips" value="{{form.tips}}" bindinput="onFieldInput" maxlength="2000" auto-height />
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-title">展示状态</view>
+      <view class="switch-row">
+        <view><text class="switch-title">推荐</text><text class="switch-desc">用于推荐菜和首页推荐区域</text></view>
+        <switch checked="{{form.recommended}}" data-field="recommended" bindchange="onSwitchChange" color="#E85B3F" />
+      </view>
+      <view class="switch-row">
+        <view><text class="switch-title">招牌</text><text class="switch-desc">标记为小高拿手菜</text></view>
+        <switch checked="{{form.signature}}" data-field="signature" bindchange="onSwitchChange" color="#E85B3F" />
+      </view>
+      <view class="switch-row">
+        <view><text class="switch-title">今天可做</text><text class="switch-desc">关闭后用户端仍展示“今天不做”</text></view>
+        <switch checked="{{form.availableToday}}" data-field="availableToday" bindchange="onSwitchChange" color="#E85B3F" />
+      </view>
+      <view class="switch-row">
+        <view><text class="switch-title">今日售罄</text><text class="switch-desc">材料不足，暂时不能加入点菜单</text></view>
+        <switch checked="{{form.soldOut}}" data-field="soldOut" bindchange="onSwitchChange" color="#E85B3F" />
+      </view>
+      <view class="switch-row">
+        <view><text class="switch-title">上架</text><text class="switch-desc">关闭后普通用户完全看不到</text></view>
+        <switch checked="{{form.enabled}}" data-field="enabled" bindchange="onSwitchChange" color="#E85B3F" />
+      </view>
+      <view class="field sort-field">
+        <text class="label">排序值</text>
+        <input class="control" data-field="sort" value="{{form.sort}}" bindinput="onFieldInput" type="number" />
+        <text class="field-tip">同一分类内数字越小越靠前。</text>
+      </view>
+    </view>
+
+    <view class="footer-space"></view>
+    <view class="save-bar">
+      <button class="save-button" bindtap="onSave" loading="{{saving}}" disabled="{{saving || uploading}}">{{dishId ? '保存修改' : '添加到菜单'}}</button>
+    </view>
+  </block>
+</view>

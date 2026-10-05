@@ -1,0 +1,8 @@
+<view class="order-product-row brand-theme">
+  <image class="order-product-cover" src="{{displayCover}}" mode="aspectFill" binderror="onImageError" data-cover="{{cover}}" data-src="{{displayCover}}" bindload="onCachedImageLoad" />
+  <view class="order-product-main">
+    <view class="order-product-title"><text class="order-product-name">{{item.name}}</text><text class="order-product-count">×{{item.quantity}}</text></view>
+    <text wx:if="{{item.summaryText}}" class="order-product-summary {{fullSummary ? 'summary-full' : ''}}">{{item.summaryText}}</text>
+  </view>
+  <text wx:if="{{showPrice}}" class="order-product-price {{item.lineAmount === null ? 'order-product-unpriced' : ''}}">{{item.lineAmount === null ? '未标价' : '¥' + item.lineAmountText}}</text>
+</view>

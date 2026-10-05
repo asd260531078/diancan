@@ -1,0 +1,208 @@
+<!-- 首页和菜单共用卡片，仅展示字段不同；点击仍由原页面处理。 -->
+<template name="dishCard">
+  <view class='dish-card' bindtap='goDetail' data-dishid='{{item.id}}' hover-class='ui-press' hover-stay-time='80'>
+    <image class='dish-image' src='{{item.displayCover}}' mode='aspectFill' lazy-load='{{!item.eagerImage}}' binderror='onDishImageError' data-dishid='{{item.id}}' data-cover='{{item.cover || item.legacyCover || item.image}}' data-src='{{item.displayCover}}' bindload='onDishImageLoad' />
+    <view class='dish-info'>
+      <text class='dish-name'><text wx:for='{{item.nameSegments}}' wx:for-item='seg' wx:key='key' class='{{seg.highlight ? "dish-name-highlight" : ""}}'>{{seg.text}}</text></text>
+      <view wx:if='{{item.canAddToCart && (item.signature || item.recommended || item.spicyText || item.displayTags.length > 0)}}' class='dish-tags'>
+        <text wx:if='{{item.signature}}' class='dish-tag signature-tag'>招牌</text>
+        <text wx:if='{{item.recommended}}' class='dish-tag recommended-tag'>推荐</text>
+        <text wx:if='{{item.spicyText}}' class='dish-tag spicy-tag'>{{item.spicyText}}</text>
+        <text wx:for='{{item.displayTags}}' wx:for-item='tag' wx:for-index='tagIndex' wx:key='*this' wx:if='{{tagIndex < 2}}' class='dish-tag {{tag === "新品" ? "new-tag" : tag === "家人最爱" ? "family-tag" : tag === "下饭" ? "rice-tag" : "custom-tag"}}'>{{tag}}</text>
+      </view>
+      <view wx:if='{{item.restrictionText}}' class='availability-tags'>
+        <text class='availability-tag {{item.restrictionKey === "soldOut" ? "sold-out-tag" : "unavailable-tag"}}'>{{item.restrictionText}}</text>
+      </view>
+      <text wx:if='{{item.description}}' class='dish-desc'>{{item.description}}</text>
+      <view class='dish-footer'>
+        <text wx:if='{{item.price !== null && item.price !== undefined}}' class='price'>¥{{item.price}}</text>
+        <text wx:else class='price-unset'>未标价</text>
+        <button class='add-btn {{item.canAddToCart ? "" : "add-btn-disabled"}}' disabled='{{!item.canAddToCart}}' catchtap='addToCart' data-dish='{{item}}' hover-class='ui-press' aria-label='加入{{item.name}}'>+</button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<view class='page tab-page-safe menu-shell {{cartCount > 0 ? "has-cart-bar" : ""}}'>
+  <view class='view-nav'>
+    <view class='view-tabs'>
+      <view class='view-tab {{viewMode === "home" ? "view-tab-active" : ""}}' data-view='home' bindtap='switchView' hover-class='ui-press'>食堂</view>
+      <view class='view-tab {{viewMode === "menu" ? "view-tab-active" : ""}}' data-view='menu' bindtap='switchView' hover-class='ui-press'>菜单</view>
+    </view>
+    <text class='nav-note'>为家人和朋友做饭</text>
+  </view>
+
+  <scroll-view hidden='{{viewMode !== "home"}}' class='home-scroll {{viewMode !== "home" ? "view-hidden" : ""}}' scroll-y>
+    <view class='home-content ui-fade-in'>
+      <view class='brand-block'>
+        <view class='brand-copy'>
+          <text class='brand-eyebrow'>家常 · 手作 · 好滋味</text>
+          <text class='brand-title'>小高の食堂</text>
+          <text class='brand-subtitle'>今天也好好吃饭。</text>
+        </view>
+        <view class='brand-decoration'><home-decoration id='home-decoration' /></view>
+      </view>
+
+      <view wx:if='{{catalogLoading && dishes.length === 0}}' class='ui-loading'><text class='ui-loading-mark' />正在准备菜单…</view>
+      <view wx:elif='{{catalogError && dishes.length === 0}}' class='ui-empty'>
+        <text class='ui-empty-title'>菜单暂时没有加载出来</text>
+        <view class='ui-button ui-button-secondary' bindtap='retryCatalog'>再试一次</view>
+      </view>
+      <view wx:elif='{{featuredDishes.length > 0}}' class='featured-section'>
+        <view class='section-heading'><text class='section-title'>小高拿手菜</text><text class='section-caption'>用心做的，想给你尝尝</text></view>
+        <scroll-view class='popular-list' scroll-x enable-flex='{{true}}' show-scrollbar='{{false}}'>
+          <view class='featured-track'>
+            <view wx:for='{{featuredDishes}}' wx:key='_id' class='featured-card {{featuredDishes.length === 1 ? "featured-card-single" : ""}}' bindtap='goDetail' data-dishid='{{item.id}}' hover-class='ui-press'>
+              <image class='featured-image' src='{{item.displayCover}}' mode='aspectFill' binderror='onDishImageError' data-dishid='{{item.id}}' data-cover='{{item.cover || item.legacyCover || item.image}}' data-src='{{item.displayCover}}' bindload='onDishImageLoad' />
+              <view class='featured-copy'>
+                <view class='featured-heading'>
+                  <text class='featured-name'>{{item.name}}</text>
+                  <text wx:if='{{item.price !== null && item.price !== undefined}}' class='price'>¥{{item.price}}</text>
+                  <text wx:else class='price-unset'>未标价</text>
+                </view>
+                <text wx:if='{{item.description}}' class='featured-desc'>{{item.description}}</text>
+                <view wx:if='{{item.restrictionText}}' class='availability-tags'><text class='availability-tag {{item.restrictionKey === "soldOut" ? "sold-out-tag" : "unavailable-tag"}}'>{{item.restrictionText}}</text></view>
+                <view wx:else class='dish-tags'>
+                  <text wx:if='{{item.signature}}' class='dish-tag signature-tag'>招牌</text>
+                  <text wx:if='{{item.recommended}}' class='dish-tag recommended-tag'>推荐</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <view class='shortcut-grid'>
+        <view class='shortcut' bindtap='goMealRandom' hover-class='ui-press'>
+          <image class='shortcut-art' src='/images/home-shortcuts/choice.png' mode='aspectFit' /><text class='shortcut-title'>今天想吃什么</text><text class='shortcut-note'>把选择交给灵感</text>
+        </view>
+        <view class='shortcut' bindtap='goMealSets' hover-class='ui-press'>
+          <image class='shortcut-art' src='/images/home-shortcuts/set-meal.png' mode='aspectFit' /><text class='shortcut-title'>固定套餐</text><text class='shortcut-note'>好好搭配的一餐</text>
+        </view>
+        <view class='shortcut' bindtap='goAllMenu' hover-class='ui-press'>
+          <image class='shortcut-art' src='/images/home-shortcuts/all-menu.png' mode='aspectFit' /><text class='shortcut-title'>全部菜单</text><text class='shortcut-note'>看看想吃哪一道</text>
+        </view>
+      </view>
+
+      <view class='section-heading preview-heading'><text class='section-title'>翻翻今日菜单</text><view class='section-link' bindtap='goAllMenu'>全部菜单 ›</view></view>
+      <view class='preview-list'>
+        <block wx:for='{{previewDishes}}' wx:key='_id'><template is='dishCard' data='{{item: item}}' /></block>
+      </view>
+      <view wx:if='{{!catalogLoading && !catalogError && dishes.length === 0}}' class='ui-empty'>
+        <text class='ui-empty-title'>菜单正在慢慢添新</text><text>好吃的值得等一等。</text>
+      </view>
+      <text class='home-footnote'>一餐一饭，都是心意。</text>
+      <view class='scroll-bottom-space' />
+    </view>
+  </scroll-view>
+
+  <view hidden='{{viewMode !== "menu"}}' class='menu-panel ui-fade-in {{viewMode !== "menu" ? "view-hidden" : ""}}'>
+    <view class='search-bar'>
+      <view class='search-symbol' />
+      <input class='search-input' placeholder='今天想吃哪一道？' value='{{searchKey}}' bindinput='onSearchInput' bindconfirm='onSearchInput' />
+      <view wx:if='{{searchKey}}' class='search-clear' bindtap='onSearchClear'>×</view>
+    </view>
+    <view class='menu-workspace'>
+      <scroll-view class='category-rail' scroll-y show-scrollbar='{{false}}'>
+        <view class='category-rail-content'>
+          <view wx:for='{{categories}}' wx:key='id' class='category-item {{activeCategoryId === item.id ? "active" : ""}}' bindtap='onCategoryChange' data-categoryid='{{item.id}}' hover-class='category-pressed'>
+            <image wx:if='{{item.cachedDisplayIcon}}' class='category-icon' src='{{item.cachedDisplayIcon}}' mode='aspectFit' binderror='onCategoryIconError' data-categoryid='{{item.id}}' data-cover='{{item.displayIcon}}' data-src='{{item.cachedDisplayIcon}}' data-fallback='' />
+            <text wx:elif='{{item.displayIconText}}' class='category-icon-text'>{{item.displayIconText}}</text>
+            <view wx:else class='category-symbol'><view /><view /><view /></view>
+            <text class='category-name'>{{item.name}}</text>
+          </view>
+          <view class='scroll-bottom-space' />
+        </view>
+      </scroll-view>
+      <scroll-view class='menu-list-scroll' scroll-y>
+        <view class='dish-list' wx:if='{{!menuReady}}'>
+          <view wx:if='{{catalogLoading}}' class='ui-loading'><text class='ui-loading-mark' />菜单准备中…</view>
+          <view wx:elif='{{catalogError}}' class='ui-empty'><text class='ui-empty-title'>菜单加载失败</text><view class='ui-button ui-button-secondary' bindtap='retryCatalog'>再试一次</view></view>
+        </view>
+        <block wx:for='{{categoryPanels}}' wx:for-item='panel' wx:key='categoryId'>
+          <!-- visited only changes false -> true; category switching never unmounts a visited panel. -->
+          <view wx:if='{{panel.visited}}' hidden='{{activeCategoryId !== panel.categoryId}}' class='dish-list'>
+            <view class='menu-list-heading'><text>{{panel.name}}</text><text class='menu-list-count'>{{panel.visibleCount}} 道</text></view>
+            <view wx:for='{{panel.dishes}}' wx:key='_id' hidden='{{item.searchHidden}}'>
+              <template is='dishCard' data='{{item: item}}' />
+            </view>
+            <view wx:if='{{panel.visibleCount === 0}}' class='ui-empty'><text>{{searchKey ? "没有找到这道菜，换个名字试试" : "这个分类今天还没有菜哦"}}</text></view>
+          <view class='scroll-bottom-space' />
+          </view>
+        </block>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 购物车悬浮按钮 -->
+  <view wx:if='{{cartCount > 0}}' class='cart-bar'>
+    <view class='cart-summary-box' bindtap='toggleCart'>
+      <image class='cart-summary-wood' src='/images/cart-wood-panel.png' mode='aspectFill' />
+      <view class='cart-info'>
+        <text class='cart-icon'>点菜单</text>
+        <text class='cart-badge'>{{cartCount}}</text>
+      </view>
+      <text class='cart-total'>¥{{totalAmountText}}</text>
+    </view>
+    <view class='checkout-btn' catchtap='goCheckout'>去确认</view>
+  </view>
+
+  <!-- 购物车弹出层 -->
+  <view wx:if='{{showCart}}' class='cart-popup'>
+    <view class='cart-mask' bindtap='toggleCart'></view>
+    <view class='cart-content'>
+      <view class='cart-header'>
+        <text>已选菜品</text>
+        <text class='clear-btn' bindtap='clearCart'>清空</text>
+      </view>
+      <scroll-view class='cart-items' scroll-y>
+        <view wx:for='{{cart}}' wx:key='cartItemId' class='cart-item'>
+          <image class='cart-item-cover' src='{{item.displayCover || "/images/default-dish.png"}}' mode='aspectFill' data-cover='{{item.cover || item.legacyCover || item.image}}' data-src='{{item.displayCover || "/images/default-dish.png"}}' binderror='onCachedImageError' bindload='onDishImageLoad'></image>
+          <view class='cart-item-main'>
+            <text class='cart-item-name'>{{item.name}}</text>
+            <text wx:if='{{item.summaryText}}' class='cart-item-summary'>{{item.summaryText}}</text>
+            <text wx:if='{{item.unitPrice !== null}}' class='cart-item-price'>¥{{item.unitPrice}}</text>
+            <text wx:else class='cart-item-price cart-item-unpriced'>未标价</text>
+            <view class='cart-item-links'>
+              <text wx:if='{{item.type === "drink" && item.summaryText}}' class='cart-item-edit' catchtap='editDrinkCartItem' data-cartitemid='{{item.cartItemId}}'>修改规格</text>
+              <text wx:if='{{item.type === "food" && item.summaryText}}' class='cart-item-edit' catchtap='editFoodCartItem' data-cartitemid='{{item.cartItemId}}'>修改需求</text>
+              <text class='cart-item-remove' catchtap='removeCartItem' data-cartitemid='{{item.cartItemId}}'>删除</text>
+            </view>
+          </view>
+          <view class='cart-item-controls'>
+            <text catchtap='decreaseCartItem' data-cartitemid='{{item.cartItemId}}'>-</text>
+            <text class='cart-item-quantity'>{{item.quantity}}</text>
+            <text catchtap='increaseCartItem' data-cartitemid='{{item.cartItemId}}'>+</text>
+          </view>
+        </view>
+      </scroll-view>
+      <view class='cart-footer'>
+        <view class='cart-footer-summary'>
+          <text>共 {{cartCount}} 份</text>
+          <text class='cart-footer-amount'>合计：¥{{totalAmountText}}</text>
+        </view>
+        <view class='checkout-btn' catchtap='goCheckout'>去确认</view>
+      </view>
+    </view>
+  </view>
+
+  <drink-option-sheet
+    visible='{{drinkOptionVisible}}'
+    dish='{{drinkOptionDish}}'
+    initial-selected-options='{{drinkOptionInitialOptions}}'
+    initial-quantity='{{drinkOptionInitialQuantity}}'
+    bindclose='closeDrinkOptions'
+    bindconfirm='onDrinkOptionsConfirm'
+  />
+  <food-option-sheet
+    visible='{{foodOptionVisible}}'
+    dish='{{foodOptionDish}}'
+    initial-selected-options='{{foodOptionInitialOptions}}'
+    initial-quantity='{{foodOptionInitialQuantity}}'
+    bindclose='closeFoodOptions'
+    bindconfirm='onFoodOptionsConfirm'
+  />
+</view>
+
+<!-- 自定义 Tab Bar -->
+<custom-tab-bar id='menu-tab-bar' />

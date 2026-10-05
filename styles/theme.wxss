@@ -1,0 +1,52 @@
+/* 4A 公共视觉基础。新页面使用 ui-*；旧业务页面按后续阶段逐步接入。 */
+page, .brand-theme {
+  --color-brand: #8B5E3C;
+  --color-brand-dark: #6F472D;
+  --color-brand-soft: #F3E8DC;
+  --color-bg: #F6F0E6;
+  --color-surface: #FFFCF7;
+  --color-surface-warm: #EFE7DB;
+  --color-text-primary: #2B2119;
+  --color-text-secondary: #766553;
+  --color-text-muted: #8B7A69;
+  --color-border: #E5D8C7;
+  --color-danger: #b34b3c;
+  --color-action: #8B5E3C;
+  --color-price: #E95B3D;
+  --color-action-soft: #F3E8DC;
+  --color-danger-soft: #F5E8E0;
+  --color-disabled: #DED4C7;
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --space-xs: 8rpx;
+  --space-sm: 16rpx;
+  --space-md: 24rpx;
+  --space-lg: 32rpx;
+  --font-display: 52rpx;
+  --font-title: 36rpx;
+  --font-body: 28rpx;
+  --font-caption: 24rpx;
+  --font-label: 20rpx;
+  --shadow-soft: 0 4rpx 16rpx rgba(43, 33, 25, 0.04);
+}
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 76rpx;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-body);
+  font-weight: 600;
+  box-sizing: border-box;
+}
+.ui-button-primary { color: #fff; background: var(--color-brand); }
+.ui-button-secondary { color: var(--color-text-primary); background: var(--color-surface); border: 1rpx solid var(--color-border); }
+.ui-button-danger { color: var(--color-danger); background: var(--color-brand-soft); }
+.ui-press { opacity: 0.8; transform: scale(0.985); }
+.ui-empty, .ui-loading { padding: 64rpx 24rpx; text-align: center; color: var(--color-text-secondary); font-size: var(--font-caption); line-height: 1.7; }
+.ui-empty-title { display: block; color: var(--color-text-primary); font-size: var(--font-body); font-weight: 600; margin-bottom: var(--space-xs); }
+.ui-loading-mark { display: inline-block; width: 12rpx; height: 12rpx; border-radius: 50%; background: var(--color-brand); margin-right: 12rpx; }
+.ui-fade-in { animation: ui-fade-in 180ms ease-out; }
+@keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }

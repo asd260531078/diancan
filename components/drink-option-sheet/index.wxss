@@ -1,0 +1,57 @@
+@import "../../styles/theme.wxss";
+@import "../../styles/spec-options.wxss";
+
+.drink-sheet-layer { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1500; }
+.drink-sheet-mask { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(20, 18, 16, 0.48); }
+.drink-sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 94vh; max-height: 1320rpx; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--color-bg); }
+.drink-sheet-header { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 20rpx 28rpx 16rpx; border-bottom: 1rpx solid var(--color-border); background: var(--color-surface); }
+.drink-sheet-title { color: var(--color-text-primary); font-size: 32rpx; font-weight: 700; }
+.drink-sheet-close { padding: 8rpx 0 8rpx 24rpx; color: var(--color-text-secondary); font-size: 25rpx; }
+.drink-sheet-scroll { flex: 1; min-height: 0; box-sizing: border-box; }
+.drink-product { display: flex; gap: 16rpx; margin: 16rpx 24rpx; padding: 16rpx; border-radius: var(--radius-md); background: var(--color-surface); }
+.drink-product-cover { width: 112rpx; height: 112rpx; flex-shrink: 0; border-radius: var(--radius-md); background: var(--color-surface-warm); }
+.drink-product-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 12rpx; }
+.drink-product-name { color: var(--color-text-primary); font-size: 31rpx; font-weight: 700; }
+.drink-product-description { color: var(--color-text-secondary); font-size: 23rpx; line-height: 1.5; }
+.drink-option-group { margin: 0 24rpx 14rpx; padding: 18rpx; border-radius: var(--radius-md); background: var(--color-surface); }
+.drink-option-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
+.drink-option-label { color: var(--color-text-primary); font-size: 27rpx; font-weight: 700; }
+.drink-option-rule { color: var(--color-text-muted); font-size: 21rpx; }
+.drink-sheet-scroll-spacer { height: 30rpx; }
+.drink-sheet-footer { flex-shrink: 0; padding: 12rpx 24rpx; padding-bottom: calc(12rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid var(--color-border); background: var(--color-surface); box-shadow: 0 -4rpx 16rpx rgba(43, 33, 25, 0.04); }
+.drink-selection-summary { display: flex; align-items: baseline; gap: 8rpx; margin-bottom: 8rpx; min-width: 0; }
+.drink-price { margin-right: 12rpx; color: var(--color-price); font-size: 34rpx; font-weight: 800; }
+.drink-price-unset { color: var(--color-text-muted); }
+.drink-summary-label { color: var(--color-text-primary); font-size: 23rpx; font-weight: 700; }
+.drink-summary-text { flex: 1; min-width: 0; color: var(--color-text-secondary); font-size: 23rpx; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.drink-missing-text { flex: 1; min-width: 0; color: var(--color-action); font-size: 22rpx; }
+.drink-footer-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8rpx; }
+.drink-meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 8rpx; min-height: 60rpx; }
+.drink-quantity { width: auto; max-width: 100%; align-self: flex-end; margin-left: auto; }
+.drink-confirm-button::after { border: 0; }
+.drink-confirm-button { display: block; width: 100%; min-height: 68rpx; margin: 0; box-sizing: border-box; border-radius: var(--radius-md); background: var(--color-action); color: #fff; font-size: 28rpx; font-weight: 700; line-height: 68rpx; }
+.drink-confirm-button.disabled { background: var(--color-disabled); color: var(--color-text-muted); }
+/* 仅覆盖饮品组件，保留共用数量控件和食物规格逻辑。 */
+.drink-sheet .spec-option {
+  min-width: 132rpx;
+  max-width: 100%;
+  min-height: 76rpx;
+  padding: 14rpx 20rpx;
+  border-radius: var(--radius-sm);
+  border-color: var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  white-space: normal;
+  word-break: break-all;
+}
+.drink-sheet .spec-option-active {
+  background: var(--color-brand);
+  border-color: var(--color-brand-dark);
+  color: #fff;
+  font-weight: 700;
+}
+.cup-icon { position: relative; width: 25rpx; height: 27rpx; flex: 0 0 25rpx; color: inherit; }
+.cup-rim { position: absolute; top: 2rpx; left: 2rpx; width: 21rpx; height: 3rpx; border: 2rpx solid currentColor; border-radius: 5rpx; box-sizing: border-box; }
+.cup-body { position: absolute; top: 7rpx; left: 5rpx; width: 16rpx; height: 17rpx; border: 2rpx solid currentColor; border-top: 0; border-radius: 2rpx 2rpx 5rpx 5rpx; box-sizing: border-box; }
+.drink-sheet .quantity-circle { background: var(--color-surface-warm); color: var(--color-text-primary); }
+.drink-sheet .quantity-value { background: var(--color-surface); border-color: var(--color-border); color: var(--color-text-primary); }

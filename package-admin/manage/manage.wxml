@@ -1,0 +1,68 @@
+<!-- package-admin/manage/manage.wxml -->
+<view class="page tab-page-safe">
+  <view class="header">
+    <view>
+      <text class="title">菜品管理</text>
+      <text class="subtitle">维护小高の食堂今日菜单</text>
+    </view>
+    <view class="header-actions">
+      <view class="orders-btn" bindtap="onManageOrders">
+        <text>订单管理</text>
+        <text wx:if="{{chefPendingBadge}}" class="orders-badge">{{chefPendingBadge}}</text>
+      </view>
+      <view class="meal-set-btn" bindtap="onManageMealSets">套餐管理</view>
+      <view wx:if="{{hasLegacyDishes}}" class="import-btn" bindtap="onImportLegacy">导入旧数据</view>
+      <view class="category-btn" bindtap="onManageCategories">分类管理</view>
+      <view class="add-btn" bindtap="onAddDish">＋ 添加</view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty"><text>正在连接云端数据...</text></view>
+
+  <view wx:else class="dish-list">
+    <view wx:for="{{dishes}}" wx:key="id" class="dish-card {{item.enabled ? '' : 'dish-disabled'}}">
+      <image class="dish-img" src="{{item.displayCover}}" mode="aspectFill" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad" />
+      <view class="dish-info">
+        <view class="dish-top">
+          <view>
+            <text class="dish-name">{{item.name}}</text>
+            <text wx:if="{{item.price !== null}}" class="dish-price">¥{{item.price}}</text>
+          </view>
+        </view>
+        <text class="dish-category">{{item.categoryName || item.category}} · {{item.type === 'drink' ? '饮品' : '菜品'}}</text>
+        <text class="dish-desc">{{item.description || '暂未填写简介'}}</text>
+        <view class="status-tags">
+          <text wx:if="{{item.recommended}}" class="status-tag recommended">推荐</text>
+          <text wx:if="{{item.signature}}" class="status-tag signature">招牌</text>
+          <text wx:if="{{!item.enabled}}" class="status-tag disabled-tag">已下架</text>
+          <text wx:elif="{{item.soldOut}}" class="status-tag sold-out">今日售罄</text>
+          <text wx:elif="{{!item.availableToday}}" class="status-tag unavailable">今天不做</text>
+        </view>
+        <view class="quick-statuses">
+          <label class="quick-status">
+            <text>上架</text>
+            <switch checked="{{item.enabled}}" bindchange="onToggleDishStatus" data-dishid="{{item.id}}" data-field="enabled" color="#E85B3F" />
+          </label>
+          <label class="quick-status">
+            <text>今日可做</text>
+            <switch checked="{{item.availableToday}}" bindchange="onToggleDishStatus" data-dishid="{{item.id}}" data-field="availableToday" color="#E85B3F" />
+          </label>
+          <label class="quick-status">
+            <text>售罄</text>
+            <switch checked="{{item.soldOut}}" bindchange="onToggleDishStatus" data-dishid="{{item.id}}" data-field="soldOut" color="#E85B3F" />
+          </label>
+        </view>
+      </view>
+      <view class="dish-actions">
+        <view class="action-edit" bindtap="onEditDish" data-dishid="{{item.id}}">编辑</view>
+        <view class="action-delete" bindtap="onDeleteDish" data-dishid="{{item.id}}">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && dishes.length === 0}}" class="empty">
+    <text>还没有菜品，点击右上角「添加」开始</text>
+  </view>
+</view>
+
+<custom-tab-bar />

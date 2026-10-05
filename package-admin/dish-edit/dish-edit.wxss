@@ -1,0 +1,99 @@
+page { background: #f5f4f1; color: #292724; }
+
+.page { min-height: 100vh; padding: 24rpx 24rpx 0; box-sizing: border-box; }
+.state-panel { padding: 220rpx 20rpx; text-align: center; color: #888; font-size: 28rpx; }
+.notice { margin-bottom: 20rpx; padding: 20rpx 24rpx; background: #fff8eb; border: 1rpx solid #f0dfbd; border-radius: 16rpx; color: #806438; font-size: 24rpx; line-height: 1.6; }
+.section { margin-bottom: 24rpx; padding: 30rpx; background: #fff; border-radius: 22rpx; box-shadow: 0 4rpx 18rpx rgba(40, 32, 24, 0.04); }
+.section-title { margin-bottom: 28rpx; font-size: 32rpx; font-weight: 700; }
+.section-description { margin: -12rpx 0 28rpx; color: #8b8781; font-size: 23rpx; line-height: 1.6; }
+.field { margin-bottom: 30rpx; }
+.field:last-child { margin-bottom: 0; }
+.label-row { display: flex; justify-content: space-between; align-items: center; }
+.label { display: block; margin-bottom: 12rpx; color: #393632; font-size: 27rpx; font-weight: 600; }
+.required .label::after { content: ' *'; color: #d94b35; }
+.control, .picker-control { width: 100%; min-height: 84rpx; padding: 20rpx 24rpx; box-sizing: border-box; background: #f7f6f3; border: 1rpx solid #ebe8e2; border-radius: 14rpx; font-size: 27rpx; line-height: 44rpx; }
+.textarea { min-height: 130rpx; }
+.recipe-textarea { min-height: 210rpx; }
+.placeholder { color: #a6a29d; }
+.field-tip { display: block; margin-top: 10rpx; color: #96918b; font-size: 22rpx; line-height: 1.5; }
+.error-text { color: #d94b35; }
+.counter { color: #999; font-size: 23rpx; }
+
+.cover-row { display: flex; align-items: center; gap: 24rpx; }
+.cover-box { width: 220rpx; height: 180rpx; flex-shrink: 0; overflow: hidden; background: #f7f6f3; border: 1rpx dashed #d8d3cb; border-radius: 16rpx; }
+.cover-image { width: 100%; height: 100%; }
+.cover-actions { flex: 1; }
+.upload-placeholder, .add-image { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8f8a84; font-size: 23rpx; }
+.upload-plus { margin-bottom: 4rpx; font-size: 46rpx; line-height: 1; font-weight: 300; }
+.small-button { display: inline-block; margin: 0; padding: 0 24rpx; background: #fff; border: 1rpx solid #d8d3cb; color: #514d48; font-size: 24rpx; line-height: 62rpx; }
+.small-button::after { border: 0; }
+.image-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.image-item, .add-image { position: relative; width: 142rpx; height: 142rpx; overflow: hidden; background: #f7f6f3; border-radius: 14rpx; }
+.other-image { width: 100%; height: 100%; }
+.add-image { border: 1rpx dashed #d8d3cb; box-sizing: border-box; }
+.remove-image { position: absolute; top: 6rpx; right: 6rpx; width: 38rpx; height: 38rpx; border-radius: 50%; background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 30rpx; line-height: 35rpx; text-align: center; }
+
+.switch-row { min-height: 96rpx; display: flex; justify-content: space-between; align-items: center; gap: 20rpx; border-bottom: 1rpx solid #efede9; }
+.switch-title, .switch-desc { display: block; }
+.switch-title { color: #36332f; font-size: 27rpx; font-weight: 600; }
+.switch-desc { margin-top: 6rpx; color: #98938c; font-size: 21rpx; }
+.sort-field { margin-top: 28rpx; }
+
+.drink-spec-section { border-top: 6rpx solid #dca75f; }
+.food-option-section { border-top: 6rpx solid #d98469; }
+.spec-block { padding: 26rpx 0; border-top: 1rpx solid #efede9; }
+.spec-block:first-of-type { padding-top: 0; border-top: 0; }
+.spec-title, .spec-subtitle { display: block; color: #38342f; font-size: 28rpx; font-weight: 700; }
+.spec-title { margin-bottom: 18rpx; }
+.spec-subtitle { margin-bottom: 14rpx; font-size: 25rpx; }
+.option-grid { display: flex; flex-wrap: wrap; gap: 14rpx; }
+.option-item { display: flex; align-items: center; gap: 6rpx; min-width: 190rpx; padding: 13rpx 16rpx; box-sizing: border-box; background: #f7f6f3; border: 1rpx solid #ebe7df; border-radius: 12rpx; color: #57524c; font-size: 24rpx; }
+.option-item checkbox { transform: scale(0.78); transform-origin: left center; }
+.option-selected { background: #fff5ee; border-color: #e7a890; color: #b84d35; }
+.role-readonly { min-width: 150rpx; justify-content: center; }
+.topping-group { margin-bottom: 14rpx; overflow: hidden; border: 1rpx solid #ebe7df; border-radius: 14rpx; }
+.topping-group-header { display: flex; justify-content: space-between; align-items: center; min-height: 82rpx; padding: 0 22rpx; background: #faf9f7; }
+.topping-group-name { color: #403c37; font-size: 26rpx; font-weight: 600; }
+.selected-count { margin-left: 14rpx; color: #d05b40; font-size: 21rpx; }
+.expand-icon { color: #8e8982; font-size: 22rpx; }
+.topping-options { padding: 20rpx; border-top: 1rpx solid #ebe7df; }
+.custom-topping-area { margin-top: 24rpx; padding-top: 24rpx; border-top: 1rpx dashed #ded9d1; }
+.custom-topping-input-row { display: flex; align-items: center; gap: 14rpx; }
+.custom-topping-input { flex: 1; }
+.add-custom-button { margin: 0; padding: 0 22rpx; background: #e85b3f; color: #fff; border-radius: 12rpx; font-size: 24rpx; line-height: 84rpx; }
+.add-custom-button::after { border: 0; }
+.custom-topping-list { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 18rpx; }
+.custom-topping-tag { display: flex; align-items: center; gap: 10rpx; padding: 9rpx 12rpx 9rpx 16rpx; background: #fff3eb; border-radius: 24rpx; color: #a84b36; font-size: 23rpx; }
+.remove-custom { width: 30rpx; height: 30rpx; border-radius: 50%; background: rgba(168, 75, 54, 0.12); text-align: center; line-height: 27rpx; font-size: 26rpx; }
+
+.recipe-section { overflow: hidden; }
+.section-heading-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20rpx; margin-bottom: 26rpx; }
+.section-heading-row .section-title { margin-bottom: 18rpx; }
+.section-heading-row .section-description { margin: 0; }
+.small-add-button { flex-shrink: 0; margin: 0; padding: 0 20rpx; background: #e85b3f; color: #fff; border-radius: 12rpx; font-size: 23rpx; line-height: 64rpx; }
+.small-add-button::after, .text-action::after, .delete-action::after, .secondary-button::after { border: 0; }
+.recipe-empty { padding: 34rpx 20rpx; background: #f8f7f4; border: 1rpx dashed #ddd8d0; border-radius: 14rpx; color: #99938c; text-align: center; font-size: 24rpx; }
+.ingredient-card, .step-card { margin-top: 20rpx; padding: 22rpx; background: #faf9f7; border: 1rpx solid #ebe7df; border-radius: 16rpx; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; margin-bottom: 12rpx; }
+.card-index, .step-number { color: #36322e; font-size: 27rpx; font-weight: 700; }
+.step-number { display: inline-block; padding: 7rpx 15rpx; background: #fff0e7; border-radius: 20rpx; color: #ad4b35; }
+.reorder-actions { display: flex; align-items: center; gap: 12rpx; margin-bottom: 20rpx; }
+.text-action { min-width: 0; margin: 0; padding: 0 10rpx; background: transparent; color: #746e67; font-size: 22rpx; line-height: 50rpx; }
+.text-action[disabled] { color: #c7c3be; }
+.delete-action { flex-shrink: 0; margin: 0; padding: 0 18rpx; background: #fff1ef; border-radius: 10rpx; color: #c84d3d; font-size: 22rpx; line-height: 52rpx; white-space: nowrap; }
+.recipe-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16rpx; }
+.compact-field { margin-bottom: 20rpx; }
+.compact-field:last-child { margin-bottom: 0; }
+.step-description { min-height: 120rpx; }
+.step-image-editor { margin-top: 8rpx; }
+.step-image-preview { display: block; width: 100%; height: 300rpx; margin-bottom: 16rpx; border-radius: 14rpx; background: #efede9; }
+.step-image-actions { display: flex; flex-wrap: wrap; gap: 14rpx; }
+.secondary-button { margin: 0; padding: 0 22rpx; background: #fff; border: 1rpx solid #d9d4cc; border-radius: 12rpx; color: #524d47; font-size: 23rpx; line-height: 64rpx; }
+.danger-outline { border-color: #e7bbb4; color: #bd4b3a; }
+.tips-textarea { min-height: 150rpx; }
+
+.footer-space { height: calc(164rpx + env(safe-area-inset-bottom)); }
+.save-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 20rpx 28rpx; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); box-sizing: border-box; background: rgba(255, 255, 255, 0.96); border-top: 1rpx solid #ebe8e2; }
+.save-button { background: #e85b3f; color: #fff; border-radius: 44rpx; font-size: 30rpx; font-weight: 700; line-height: 84rpx; }
+.save-button::after { border: 0; }
+.save-button[disabled] { background: #c9c5c0; color: #fff; }

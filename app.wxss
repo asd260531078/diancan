@@ -1,0 +1,97 @@
+@import "./styles/theme.wxss";
+
+/* app.wxss - 全局样式 */
+page {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--color-bg);
+  font-size: 28rpx;
+  color: var(--color-text-primary);
+}
+
+/* 普通长页面的基础底部留白。 */
+.page {
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+/*
+ * 使用固定自定义 TabBar 的页面统一添加 tab-page-safe。
+ * 双 class 提高优先级，避免页面级 padding 简写意外覆盖底部安全距离。
+ */
+.page.tab-page-safe,
+.container.tab-page-safe {
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+/* 通用容器 */
+.container {
+  padding: 30rpx;
+}
+
+/* 卡片样式 */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 30rpx;
+  margin-bottom: 30rpx;
+  box-shadow: var(--shadow-soft);
+}
+
+/* 按钮样式 */
+.btn-primary {
+  background: var(--color-brand);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 20rpx 60rpx;
+  font-size: 28rpx;
+  box-shadow: none;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20rpx 60rpx;
+  font-size: 28rpx;
+}
+
+/* 输入框 */
+.input {
+  background: var(--color-surface-warm);
+  border-radius: var(--radius-md);
+  padding: 20rpx 30rpx;
+  font-size: 28rpx;
+  margin-bottom: 20rpx;
+}
+
+/* 价格文字 */
+.price {
+  color: var(--color-price);
+  font-weight: bold;
+  font-size: 32rpx;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  background: var(--color-brand-soft);
+  color: var(--color-brand-dark);
+  padding: 8rpx 20rpx;
+  border-radius: var(--radius-sm);
+  font-size: 22rpx;
+  margin-right: 10rpx;
+}
+
+/* 空状态 */
+.empty {
+  text-align: center;
+  padding: 100rpx 0;
+  color: var(--color-text-muted);
+}

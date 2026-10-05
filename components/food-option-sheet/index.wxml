@@ -1,0 +1,65 @@
+<view wx:if="{{visible}}" class="food-sheet-layer">
+  <view class="food-sheet-mask" bindtap="close" catchtouchmove="noop"></view>
+  <view class="food-sheet" catchtap="noop">
+    <view class="food-sheet-header">
+      <text class="food-sheet-title">选择菜品口味</text>
+      <text class="food-sheet-close" bindtap="close">关闭</text>
+    </view>
+
+    <scroll-view class="food-sheet-scroll" scroll-y enable-flex="{{true}}">
+      <view class="food-product">
+        <image class="food-product-cover" src="{{displayCover || '/images/default-dish.png'}}" mode="aspectFill" data-cover="{{cover}}" data-src="{{displayCover || '/images/default-dish.png'}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+        <view class="food-product-info">
+          <text class="food-product-name">{{dish.name}}</text>
+          <view wx:if="{{dish.tags && dish.tags.length > 0}}" class="food-product-tags">
+            <text wx:for="{{dish.tags}}" wx:key="*this" class="food-product-tag">{{item}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{tasteOptions.length > 0}}" class="food-option-group">
+        <view class="food-option-heading">
+          <text class="food-option-label">口味</text>
+          <text class="food-option-rule">单选</text>
+        </view>
+        <view class="spec-option-list">
+          <view wx:for="{{tasteOptions}}" wx:key="value" class="spec-option {{item.selected ? 'spec-option-active' : ''}}" data-value="{{item.value}}" bindtap="onTasteTap">
+            <text wx:if="{{item.selected}}" class="spec-option-check">✓</text>
+            <text>{{item.value}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{requestOptions.length > 0}}" class="food-option-group">
+        <view class="food-option-heading">
+          <text class="food-option-label">特殊要求</text>
+          <text class="food-option-rule">可多选</text>
+        </view>
+        <view class="spec-option-list">
+          <view wx:for="{{requestOptions}}" wx:key="value" class="spec-option {{item.selected ? 'spec-option-active' : ''}}" data-value="{{item.value}}" bindtap="onRequestTap">
+            <text wx:if="{{item.selected}}" class="spec-option-check">✓</text>
+            <text>{{item.value}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="food-sheet-scroll-spacer"></view>
+    </scroll-view>
+
+    <view class="food-sheet-footer">
+      <view class="food-selection-summary">
+        <text class="food-price {{hasPrice ? '' : 'food-price-unset'}}">{{hasPrice ? '¥' + lineAmount : '未标价'}}</text>
+        <text class="food-summary-label">已选：</text>
+        <text class="food-summary-text">{{summaryText || '无额外口味需求'}}</text>
+        <text wx:if="{{missing.length > 0}}" class="food-missing-text">{{missing[0].message}}</text>
+      </view>
+      <view class="food-footer-actions">
+        <view class="quantity-stepper food-quantity">
+          <button class="quantity-circle" disabled="{{quantity <= 1}}" bindtap="decreaseQuantity">-</button>
+          <text class="quantity-value">{{quantity}}</text>
+          <button class="quantity-circle" disabled="{{quantity >= maxQuantity}}" bindtap="increaseQuantity">+</button>
+        </view>
+        <button class="food-confirm-button {{!canConfirm ? 'disabled' : ''}}" disabled="{{!canConfirm}}" bindtap="confirm">{{confirmText || '加入点菜单'}}</button>
+      </view>
+    </view>
+  </view>
+</view>

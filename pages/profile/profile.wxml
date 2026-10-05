@@ -1,0 +1,49 @@
+<view class="container tab-page-safe">
+  <!-- Mode Switcher -->
+  <view class="mode-switcher">
+    <view class="switch-btn {{mode === 'cooking' ? 'active' : ''}}" bindtap="onSwitchMode" data-mode="cooking">
+      <text>🍳 我是厨师</text>
+      <text wx:if="{{isAdmin && chefPendingBadge}}" class="switch-order-badge">{{chefPendingBadge}}</text>
+    </view>
+    <view class="switch-btn {{mode === 'ordering' ? 'active' : ''}}" bindtap="onSwitchMode" data-mode="ordering">🛒 我是顾客</view>
+  </view>
+
+  <view class="identity-tip">
+    {{identityLoading ? '正在验证云端身份…' : (isAdmin ? '已通过云端管理员验证' : '当前为普通用户')}}
+  </view>
+
+  <!-- Content Area -->
+  <view class="content">
+    <!-- cooking mode cards -->
+    <block wx:if="{{mode === 'cooking'}}">
+      <view class="card" bindtap="onTapCard" data-type="manage" data-mode="cooking">
+        <text class="card-icon">📋</text>
+        <text class="card-text">菜品管理</text>
+        <text class="card-arrow">›</text>
+      </view>
+      <view class="card card-orders" bindtap="onTapCard" data-type="orders" data-mode="cooking">
+        <text class="card-icon">📦</text>
+        <text class="card-text">订单管理</text>
+        <text wx:if="{{chefPendingBadge}}" class="card-order-badge">{{chefPendingBadge}}</text>
+        <text class="card-arrow">›</text>
+      </view>
+    </block>
+
+    <!-- ordering mode cards -->
+    <block wx:if="{{mode === 'ordering'}}">
+      <view class="card card-myorders" bindtap="onTapCard" data-type="myorders">
+        <text class="card-icon">🧾</text>
+        <text class="card-text">我的订单</text>
+        <text wx:if="{{openOrderBadge}}" class="card-order-badge">{{openOrderBadge}}</text>
+        <text class="card-arrow">›</text>
+      </view>
+      <view class="card" bindtap="onTapCard" data-type="favorite">
+        <text class="card-icon">⭐</text>
+        <text class="card-text">常用菜品</text>
+        <text class="card-arrow">›</text>
+      </view>
+    </block>
+  </view>
+
+  <custom-tab-bar bind:orderbadgechange="onOrderBadgeChange" />
+</view>

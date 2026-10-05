@@ -1,0 +1,42 @@
+{
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "uglifyFileName": false,
+    "enhance": true,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "useCompilerPlugins": false
+  },
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "tests" },
+      { "type": "folder", "value": "docs" },
+      { "type": "folder", "value": "scripts" },
+      { "type": "folder", "value": "images/home-decoration/source" },
+      { "type": "file", "value": "README.md" },
+      { "type": "file", "value": "utils/db.js" },
+      { "type": "file", "value": "images/izakaya-wood-texture-compact.jpg" },
+      { "type": "file", "value": "images/menu.png" },
+      { "type": "file", "value": "images/menu_active.png" },
+      { "type": "file", "value": "images/profile.png" },
+      { "type": "file", "value": "images/profile_active.png" },
+      { "type": "file", "value": "images/manage.png" },
+      { "type": "file", "value": "images/manage_active.png" },
+      { "type": "file", "value": "images/orders.png" },
+      { "type": "file", "value": "images/orders_active.png" }
+    ],
+    "include": []
+  },
+  "appid": "wx590d35e80eb22857",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "editorSetting": {}
+}

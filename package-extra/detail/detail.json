@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "小高の食堂",
+  "usingComponents": {
+    "drink-option-sheet": "/components/drink-option-sheet/index",
+    "food-option-sheet": "/components/food-option-sheet/index"
+  }
+}

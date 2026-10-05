@@ -1,0 +1,15 @@
+.decoration-scene { position: relative; width: 100%; }
+.decoration-art { display: block; width: 100%; height: 100%; }
+.decoration-lantern { position: absolute; width: 30%; height: 60%; top: 12%; left: 33%; z-index: 2; }
+.lantern-caption { position: absolute; left: 0; right: 0; top: 29%; display: flex; flex-direction: column; align-items: center; color: #FFF2D9; text-shadow: 0 1rpx 2rpx rgba(78, 39, 27, 0.45); font-size: 22rpx; font-weight: 700; line-height: 1.15; }
+.decoration-plaque { position: absolute; width: 30%; height: 70%; top: 12%; left: 6%; z-index: 2; transform: rotate(-5deg); }
+.plaque-caption { position: absolute; left: 0; right: 0; top: 30%; display: flex; flex-direction: column; align-items: center; color: #FFF8E9; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 17rpx; font-weight: 700; line-height: 1.02; letter-spacing: 0; text-shadow: 0 1rpx 1rpx rgba(45, 28, 18, 0.28); }
+.plaque-seal { position: absolute; left: 50%; bottom: 4%; display: flex; align-items: center; justify-content: center; width: 22rpx; height: 22rpx; margin-left: -11rpx; border: 1rpx solid #F4C4A2; border-radius: 3rpx; box-sizing: border-box; background: #B84734; color: #FFF1DC; font-size: 18rpx; font-weight: 700; line-height: 1; }
+.decoration-cat { position: absolute; bottom: 0; z-index: 1; }
+.decoration-eave { position: absolute; left: 0; top: 0; display: block; width: 100%; height: 29%; z-index: 3; }
+.decoration-foliage { position: absolute; right: 2%; top: 0; display: block; width: 24%; height: 31%; z-index: 4; }
+.cat-body { position: absolute; top: 0; left: 0; display: block; width: 100%; height: 100%; }
+.cat-paw { position: absolute; display: block; animation: cat-welcome-wave 2800ms ease-in-out infinite; }
+.scene-paused .cat-paw { animation-play-state: paused; }
+@keyframes cat-welcome-wave { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(9deg); } }
+@media (prefers-reduced-motion: reduce) { .cat-paw { animation: none; transform: rotate(0deg); } }

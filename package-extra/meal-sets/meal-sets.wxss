@@ -1,0 +1,28 @@
+page { background: #f6f4f1; color: #332f2b; }
+.page { min-height: 100vh; padding: 24rpx 24rpx calc(70rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.hero { display: flex; flex-direction: column; gap: 8rpx; margin-bottom: 24rpx; padding: 32rpx 28rpx; border-radius: 24rpx; background: linear-gradient(135deg,#fff2e8,#ffe0d3); }
+.eyebrow { color: #b45b42; font-size: 21rpx; letter-spacing: 2rpx; }
+.title { font-size: 42rpx; font-weight: 800; }
+.subtitle { color: #7e7168; font-size: 23rpx; }
+.state { padding: 180rpx 20rpx; color: #8d857d; text-align: center; }
+.error-state { display: flex; flex-direction: column; align-items: center; gap: 14rpx; }
+.error-message { max-width: 560rpx; font-size: 22rpx; line-height: 1.5; }
+.retry-button { min-width: 220rpx; margin: 8rpx 0 0; border-radius: 16rpx; background: #e26448; color: #fff; font-size: 25rpx; line-height: 76rpx; }
+.retry-button::after { border: 0; }
+.set-list { display: flex; flex-direction: column; gap: 22rpx; }
+.set-card { overflow: hidden; border-radius: 22rpx; background: #fff; box-shadow: 0 5rpx 18rpx rgba(54,43,35,.06); }
+.cover { width: 100%; height: 300rpx; background: #eeeae5; }
+.card-body { padding: 22rpx; }
+.name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10rpx; }
+.name { font-size: 32rpx; font-weight: 760; }
+.recommended { padding: 5rpx 10rpx; border-radius: 7rpx; background: #fff0cf; color: #9b6617; font-size: 19rpx; }
+.description { display: block; margin-top: 10rpx; color: #7e766f; font-size: 23rpx; line-height: 1.55; }
+.tags { display: flex; flex-wrap: wrap; gap: 8rpx; margin-top: 12rpx; }
+.tag { padding: 5rpx 10rpx; border-radius: 7rpx; background: #f3f0ec; color: #716961; font-size: 19rpx; }
+.summary { display: flex; flex-direction: column; gap: 6rpx; margin-top: 16rpx; color: #5f5852; font-size: 22rpx; }
+.footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 15rpx; margin-top: 18rpx; padding-top: 16rpx; border-top: 1rpx solid #eee9e4; color: #847b73; font-size: 21rpx; }
+.footer-left { display: flex; flex-direction: column; gap: 5rpx; }
+.total { color: var(--color-price); font-size: 27rpx; font-weight: 720; }
+.total.unpriced { color: var(--color-text-muted); }
+.status { color: #b34d36; font-size: 23rpx; }
+.status.unavailable { color: #a16a60; }

@@ -1,0 +1,40 @@
+/* package-admin/manage/manage.wxss */
+.page { min-height: 100vh; background: #fafafa; padding: 30rpx; box-sizing: border-box; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32rpx; }
+.title, .subtitle { display: block; }
+.title { font-size: 36rpx; font-weight: 700; color: #333; }
+.subtitle { margin-top: 6rpx; font-size: 22rpx; color: #999; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12rpx; }
+.add-btn { background: #e85b3f; color: #fff; padding: 15rpx 28rpx; border-radius: 40rpx; font-size: 26rpx; }
+.import-btn { background: #fff; color: #e85b3f; border: 1rpx solid #e85b3f; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; }
+.orders-btn { position: relative; display: flex; align-items: center; background: #e85b3f; color: #fff; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; }
+.orders-badge { position: absolute; top: -12rpx; right: -12rpx; min-width: 30rpx; height: 30rpx; padding: 0 5rpx; box-sizing: border-box; border-radius: 18rpx; background: #cf3326; color: #fff; border: 2rpx solid #fff; font-size: 18rpx; font-weight: 700; line-height: 27rpx; text-align: center; white-space: nowrap; }
+.meal-set-btn { background: #edf3df; color: #5e763e; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; white-space: nowrap; }
+.category-btn { background: #fff5ef; color: #a94b35; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; white-space: nowrap; }
+
+.dish-list { display: flex; flex-direction: column; gap: 22rpx; }
+.dish-card { background: #fff; border-radius: 20rpx; padding: 22rpx; display: flex; gap: 18rpx; box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.05); }
+.dish-img { width: 140rpx; height: 140rpx; border-radius: 15rpx; flex-shrink: 0; background: #f2f2f2; }
+.dish-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 8rpx; }
+.dish-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.dish-name { font-size: 30rpx; font-weight: 700; color: #333; margin-right: 15rpx; }
+.dish-price { font-size: 27rpx; color: var(--color-price); font-weight: 700; }
+.dish-category { font-size: 22rpx; color: #999; }
+.dish-desc { max-width: 100%; overflow: hidden; color: #666; font-size: 23rpx; text-overflow: ellipsis; white-space: nowrap; }
+.status-tags { display: flex; flex-wrap: wrap; gap: 8rpx; margin-top: 4rpx; }
+.status-tag { padding: 3rpx 10rpx; border-radius: 8rpx; font-size: 19rpx; }
+.recommended { background: #fff0eb; color: #d85438; }
+.signature { background: #fff6d9; color: #9a7012; }
+.unavailable { background: #f0f0f0; color: #777; }
+.sold-out { background: #fff0f0; color: #c84848; }
+.disabled-tag { background: #777; color: #fff; }
+.quick-statuses { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 6rpx; }
+.quick-status { display: flex; align-items: center; gap: 2rpx; padding: 3rpx 7rpx 3rpx 12rpx; background: #f7f5f2; border-radius: 14rpx; color: #625d57; font-size: 20rpx; white-space: nowrap; }
+.quick-status switch { transform: scale(0.62); transform-origin: center; margin: -8rpx -12rpx; }
+.dish-actions { display: flex; flex-direction: column; gap: 13rpx; justify-content: center; align-items: center; }
+.action-edit, .action-delete { min-width: 74rpx; box-sizing: border-box; padding: 9rpx 18rpx; border-radius: 20rpx; text-align: center; font-size: 23rpx; }
+.action-edit { background: #f0f0f0; color: #666; }
+.action-delete { background: #fff0f0; color: #e85b3f; }
+.dish-disabled { opacity: 0.62; }
+.dish-disabled .dish-img { filter: grayscale(100%); }
+.empty { padding: 200rpx 0; color: #999; text-align: center; font-size: 28rpx; }

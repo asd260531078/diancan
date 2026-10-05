@@ -1,0 +1,156 @@
+<view class="meal-page {{step === 'result' ? 'has-result-actions' : ''}}">
+  <view class="hero-card">
+    <text class="hero-eyebrow">小高の食堂</text>
+    <text class="hero-title">今天想吃什么</text>
+    <text class="hero-subtitle">先选个大概方向，剩下的交给小高。</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="state-panel">正在看看今天能做什么…</view>
+
+  <view wx:elif="{{errorMessage}}" class="state-panel error-panel">
+    <text class="empty-title">今日菜单读取失败</text>
+    <text class="empty-description">{{errorMessage}}</text>
+    <button class="retry-button" bindtap="onRetryLoad" disabled="{{refreshing}}" loading="{{refreshing}}">重新加载</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{step === 'food-category'}}" class="choice-panel">
+      <text class="step-eyebrow">第一步</text>
+      <text class="choice-title">今天想吃什么？</text>
+      <text class="choice-description">只显示今天确实有菜可做的分类，每类最多 {{maxFoodCategoryCount}} 道</text>
+
+      <view wx:if="{{foodCategories.length > 0}}" class="category-grid">
+        <view
+          wx:for="{{foodCategories}}"
+          wx:key="id"
+          class="category-option {{item.selected ? 'selected' : ''}}"
+          data-categoryid="{{item.id}}"
+          bindtap="onFoodCategoryToggle"
+        >
+          <view class="category-option-main">
+            <text wx:if="{{item.selected}}" class="selected-mark">✓</text>
+            <image wx:if="{{item.displayIconImage}}" class="category-icon" src="{{item.displayIconImage}}" mode="aspectFit" data-cover="{{item.iconImage}}" data-src="{{item.displayIconImage}}" binderror="onCachedImageError" data-fallback="" bindload="onCachedImageLoad"></image>
+            <text wx:elif="{{item.iconText}}" class="category-icon-text">{{item.iconText}}</text>
+            <text class="category-name">{{item.name}}</text>
+          </view>
+          <view wx:if="{{item.selected}}" class="category-count-control" catchtap="onFoodCountControlTap">
+            <button class="category-count-button" data-categoryid="{{item.id}}" data-delta="-1" disabled="{{item.selectedCount <= 1}}" bindtap="onFoodCategoryCountChange">−</button>
+            <text class="category-count-value">{{item.selectedCount}} 道</text>
+            <button class="category-count-button" data-categoryid="{{item.id}}" data-delta="1" disabled="{{item.selectedCount >= item.maxCount}}" bindtap="onFoodCategoryCountChange">+</button>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{foodCategories.length > 0}}" class="food-next-area">
+        <text class="selection-count">已选择 {{foodCategoryIds.length}} 项 · 共 {{selectedFoodTotalCount}} 道菜 · 最多 {{maxFoodCategorySelection}} 项</text>
+        <button
+          class="food-next-button"
+          disabled="{{foodCategoryIds.length === 0}}"
+          bindtap="onFoodCategoriesNext"
+        >下一步</button>
+      </view>
+
+      <view wx:else class="state-panel empty-panel">
+        <text class="empty-title">今天还没有可以推荐的菜哦</text>
+        <text class="empty-description">可以下拉刷新，或请小高更新今日菜单。</text>
+      </view>
+    </view>
+
+    <view wx:elif="{{step === 'drink-question'}}" class="choice-panel">
+      <button class="back-button" bindtap="onBackStep">‹ 返回选择</button>
+      <text class="step-eyebrow">已选择 {{foodCategoryNamesText}}</text>
+      <text class="choice-title">要不要喝点什么？</text>
+      <view class="question-actions">
+        <button class="question-button primary" bindtap="onChooseDrinkYes">要，来一杯</button>
+        <button class="question-button" bindtap="onChooseDrinkNo">今天不喝</button>
+      </view>
+    </view>
+
+    <view wx:elif="{{step === 'drink-category'}}" class="choice-panel">
+      <button class="back-button" bindtap="onBackStep">‹ 返回上一步</button>
+      <text class="step-eyebrow">餐食选择 {{foodCategoryNamesText}}</text>
+      <text class="choice-title">想喝点什么？</text>
+
+      <view wx:if="{{drinkCategories.length > 0}}" class="category-grid">
+        <view
+          wx:for="{{drinkCategories}}"
+          wx:key="id"
+          class="category-option"
+          data-categoryid="{{item.id}}"
+          bindtap="onDrinkCategorySelect"
+        >
+          <image wx:if="{{item.displayIconImage}}" class="category-icon" src="{{item.displayIconImage}}" mode="aspectFit" data-cover="{{item.iconImage}}" data-src="{{item.displayIconImage}}" binderror="onCachedImageError" data-fallback="" bindload="onCachedImageLoad"></image>
+          <text wx:elif="{{item.iconText}}" class="category-icon-text">{{item.iconText}}</text>
+          <text class="category-name">{{item.name}}</text>
+        </view>
+      </view>
+      <button class="skip-drink-button" bindtap="onChooseDrinkNo">改成今天不喝</button>
+    </view>
+
+    <block wx:elif="{{step === 'result'}}">
+      <view class="selection-summary">
+        <text>{{foodCategoryNamesText}}</text>
+        <text class="summary-dot">·</text>
+        <text>{{includeDrink ? drinkCategoryName : '不配饮品'}}</text>
+      </view>
+
+      <view class="result-heading">
+        <text class="result-title">今天就吃这个</text>
+        <text class="result-count">共 {{recommendedFoodCount}} 道菜</text>
+        <text class="result-subtitle">换一套也会留在刚才选择的分类里</text>
+      </view>
+
+      <view class="meal-list">
+        <view wx:for="{{mealItems}}" wx:key="dishId" class="meal-card" bindtap="goDishDetail" data-dishid="{{item.dish.id}}">
+          <image class="meal-cover" src="{{item.dish.displayCover}}" mode="aspectFill" data-cover="{{item.dish.cover || item.dish.legacyCover || item.dish.image}}" data-src="{{item.dish.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+          <view class="meal-main">
+            <view class="meal-heading">
+              <text class="role-label">{{item.categoryName}}</text>
+              <text class="meal-name">{{item.dish.name}}</text>
+            </view>
+            <view wx:if="{{item.dish.signature || item.dish.recommended || item.dish.displayTags.length > 0}}" class="meal-tags">
+              <text wx:if="{{item.dish.signature}}" class="meal-tag accent">招牌</text>
+              <text wx:if="{{item.dish.recommended}}" class="meal-tag warm">推荐</text>
+              <text wx:for="{{item.dish.displayTags}}" wx:for-item="tag" wx:key="*this" class="meal-tag">{{tag}}</text>
+            </view>
+            <view class="meal-meta">
+              <text class="meal-price {{item.dish.price === null ? 'unpriced' : ''}}">{{item.dish.priceText}}</text>
+              <text class="meal-status">今天可做</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="total-card">
+        <text class="total-label">预计合计</text>
+          <text class="total-value {{hasUnpricedItems && displayTotalAmountText === '0' ? 'unpriced' : ''}}">{{totalDisplayText}}</text>
+      </view>
+    </block>
+  </block>
+
+  <view class="bottom-space"></view>
+  <view wx:if="{{step === 'result'}}" class="action-bar">
+    <view class="secondary-actions">
+      <button class="shuffle-button" bindtap="onShuffle" disabled="{{refreshing || committing || batchActive}}">换一套</button>
+      <button class="restart-button" bindtap="onRestartSelection" disabled="{{refreshing || committing || batchActive}}">重新选择</button>
+    </view>
+    <button class="accept-button" bindtap="onAcceptMeal" loading="{{committing}}" disabled="{{mealItems.length === 0 || refreshing || committing || batchActive}}">就吃这个</button>
+  </view>
+
+  <drink-option-sheet
+    visible="{{drinkOptionVisible}}"
+    dish="{{drinkOptionDish}}"
+    initial-quantity="{{1}}"
+    confirm-text="确认并继续"
+    bindclose="cancelCustomization"
+    bindconfirm="onDrinkOptionsConfirm"
+  />
+  <food-option-sheet
+    visible="{{foodOptionVisible}}"
+    dish="{{foodOptionDish}}"
+    initial-quantity="{{1}}"
+    confirm-text="确认并继续"
+    bindclose="cancelCustomization"
+    bindconfirm="onFoodOptionsConfirm"
+  />
+</view>

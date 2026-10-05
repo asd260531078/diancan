@@ -1,0 +1,73 @@
+@import "../../styles/theme.wxss";
+/* 保持原来的 100rpx 高度与底部安全区。 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  z-index: 1000;
+  border-top: 1rpx solid var(--color-border);
+}
+
+.tab-bar-content {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 100rpx;
+  background: var(--color-surface);
+  padding: 0 20rpx;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  padding: 10rpx 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.icon-wrapper {
+  position: relative;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 轻量线性图标随主题着色，不再使用固有粉红色的选中位图。 */
+.tab-symbol { position: relative; width: 42rpx; height: 42rpx; color: #A89684; }
+.tab-item.active .tab-symbol { color: var(--color-brand-dark); }
+.tab-symbol-menu .symbol-body { position: absolute; left: 3rpx; right: 3rpx; top: 16rpx; height: 19rpx; border: 2rpx solid currentColor; border-radius: 2rpx 2rpx 18rpx 18rpx; }
+.tab-symbol-menu .symbol-top { position: absolute; width: 2rpx; height: 9rpx; top: 2rpx; left: 14rpx; background: currentColor; box-shadow: 10rpx 0 currentColor; }
+.tab-symbol-menu .symbol-line { position: absolute; left: 12rpx; right: 12rpx; bottom: 1rpx; height: 2rpx; background: currentColor; }
+.tab-symbol-catalog .symbol-body { position: absolute; inset: 3rpx 5rpx; border: 2rpx solid currentColor; border-radius: 3rpx; }
+.tab-symbol-catalog .symbol-top { position: absolute; top: 5rpx; bottom: 5rpx; left: 13rpx; width: 2rpx; background: currentColor; }
+.tab-symbol-catalog .symbol-line { position: absolute; top: 14rpx; left: 20rpx; right: 9rpx; height: 2rpx; background: currentColor; box-shadow: 0 8rpx currentColor; }
+.tab-symbol-profile .symbol-top { position: absolute; top: 2rpx; left: 13rpx; width: 14rpx; height: 14rpx; border: 2rpx solid currentColor; border-radius: 50%; }
+.tab-symbol-profile .symbol-body { position: absolute; bottom: 2rpx; left: 6rpx; right: 6rpx; height: 15rpx; border: 2rpx solid currentColor; border-radius: 16rpx 16rpx 5rpx 5rpx; }
+
+.tab-badge { position: absolute; top: -10rpx; right: -26rpx; min-width: 30rpx; height: 30rpx; padding: 0 5rpx; box-sizing: border-box; border-radius: 18rpx; background: #E95B3D; color: #fff; font-size: 18rpx; font-weight: 700; line-height: 30rpx; text-align: center; white-space: nowrap; }
+
+.tab-text {
+  font-size: 22rpx;
+  color: #A89684;
+  margin-top: 6rpx;
+  font-weight: 500;
+}
+
+.tab-item.active .tab-text {
+  color: var(--color-brand-dark);
+  font-weight: 600;
+  font-size: 22rpx;
+}
+
+.tab-bar-safe {
+  height: env(safe-area-inset-bottom);
+  background: var(--color-surface);
+}

@@ -1,0 +1,20 @@
+<view class="decoration-scene {{pageVisible ? '' : 'scene-paused'}}" style="height: {{decoration.heightRpx}}rpx;">
+  <view class="decoration-lantern">
+    <image class="decoration-art" src="{{decoration.lantern.src}}" mode="aspectFit" />
+    <view class="lantern-caption"><text wx:for="{{decoration.lantern.caption}}" wx:key="*this">{{item}}</text></view>
+  </view>
+  <view class="decoration-plaque">
+    <image class="decoration-art" src="{{decoration.plaque.src}}" mode="aspectFit" />
+    <view class="plaque-caption"><text wx:for="{{decoration.plaque.caption}}" wx:key="*this">{{item}}</text></view>
+    <view class="plaque-seal">暖</view>
+  </view>
+  <view class="decoration-cat" style="width: {{decoration.cat.widthPercent}}%; height: {{decoration.cat.heightPercent}}%; right: {{decoration.cat.rightPercent}}%;" bindtap="welcome" aria-label="招财猫，欢迎光临">
+    <image wx:if="{{decoration.cat.animatedSrc && pageVisible}}" class="cat-body" src="{{decoration.cat.animatedSrc}}" mode="aspectFit" />
+    <block wx:else>
+      <image wx:if="{{decoration.cat.pawSrc}}" class="cat-paw" src="{{decoration.cat.pawSrc}}" mode="aspectFit" style="left: {{decoration.cat.paw.left}}%; top: {{decoration.cat.paw.top}}%; width: {{decoration.cat.paw.width}}%; height: {{decoration.cat.paw.height}}%; transform-origin: {{decoration.cat.paw.origin}}; animation-duration: {{decoration.cat.waveDurationMs}}ms;" />
+      <image class="cat-body" src="{{decoration.cat.bodySrc}}" mode="aspectFit" />
+    </block>
+  </view>
+  <image class="decoration-eave" src="{{decoration.eave.src}}" mode="aspectFit" />
+  <image class="decoration-foliage" src="{{decoration.foliage.src}}" mode="aspectFit" />
+</view>

@@ -1,0 +1,41 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const { isPageRegistered } = require('./page-registration');
+
+const root = path.join(__dirname, '..');
+const app = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8'));
+const pageJs = fs.readFileSync(path.join(root, 'package-extra/meal-random/meal-random.js'), 'utf8');
+const pageWxml = fs.readFileSync(path.join(root, 'package-extra/meal-random/meal-random.wxml'), 'utf8');
+const editJs = fs.readFileSync(path.join(root, 'package-admin/dish-edit/dish-edit.js'), 'utf8');
+const editWxml = fs.readFileSync(path.join(root, 'package-admin/dish-edit/dish-edit.wxml'), 'utf8');
+
+assert.ok(isPageRegistered(app, 'package-extra/meal-random/meal-random'));
+assert.ok(pageWxml.includes('<drink-option-sheet'));
+assert.ok(pageWxml.includes('<food-option-sheet'));
+assert.ok(pageJs.includes('createMealBatch'));
+assert.ok(pageJs.includes('cancelMealBatch'));
+assert.ok(pageJs.includes('cartService.addDishes'));
+assert.ok(!pageJs.includes('cartService.addDish('));
+assert.ok(pageJs.includes("step: 'food-category'"));
+assert.ok(pageJs.includes("step: 'drink-question'"));
+assert.ok(pageJs.includes("step: 'drink-category'"));
+assert.ok(pageJs.includes("step: 'result'"));
+assert.ok(pageJs.includes('generateCategoryGuidedMeal'));
+assert.ok(pageJs.includes('getEligibleFoodCategories'));
+assert.ok(pageJs.includes('getEligibleDrinkCategories'));
+assert.ok(pageJs.includes('MAX_FOOD_CATEGORY_SELECTION'));
+assert.ok(pageJs.includes('foodCategoryIds'));
+assert.ok(pageJs.includes('onFoodCategoryToggle'));
+assert.ok(pageJs.includes('onFoodCategoriesNext'));
+assert.ok(pageWxml.includes('今天想吃什么？'));
+assert.ok(pageWxml.includes('要不要喝点什么？'));
+assert.ok(pageWxml.includes('想喝点什么？'));
+assert.ok(pageWxml.includes('重新选择'));
+assert.ok(pageWxml.includes('selected-mark'));
+assert.ok(pageWxml.includes('已选择 {{foodCategoryIds.length}} 项'));
+assert.ok(editJs.includes('onMealRolesChange'));
+assert.ok(editJs.includes('mealRoles: normalizeMealRoles'));
+assert.ok(editWxml.includes('餐食角色'));
+
+console.log('meal random integration tests passed');

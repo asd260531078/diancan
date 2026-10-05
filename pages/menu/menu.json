@@ -1,0 +1,12 @@
+{
+  "navigationBarBackgroundColor": "#F6F0E6",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#F6F0E6",
+  "disableScroll": true,
+  "usingComponents": {
+    "home-decoration": "/components/home-decoration/index",
+    "custom-tab-bar": "/components/custom-tab-bar/index",
+    "drink-option-sheet": "/components/drink-option-sheet/index",
+    "food-option-sheet": "/components/food-option-sheet/index"
+  }
+}

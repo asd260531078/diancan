@@ -1,0 +1,127 @@
+/* pages/profile/profile.wxss */
+page {
+  background: var(--color-bg);
+}
+
+.container {
+  padding: 20px 16px;
+}
+
+/* Mode Switcher */
+.mode-switcher {
+  display: flex;
+  flex-direction: row;
+  height: 44px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-warm);
+  border: 1rpx solid var(--color-border);
+  margin-bottom: 20px;
+}
+
+.identity-tip {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-align: center;
+  margin: -8px 0 18px;
+}
+
+.switch-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  transition: background-color 160ms, color 160ms;
+}
+
+.switch-order-badge {
+  min-width: 30rpx;
+  height: 30rpx;
+  margin-left: 10rpx;
+  padding: 0 5rpx;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  background: #E95B3D;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 30rpx;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.switch-btn.active {
+  background: var(--color-brand);
+  color: white;
+}
+
+/* Cards */
+.content {
+  margin-top: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background: var(--color-surface);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card.disabled {
+  opacity: 0.5;
+}
+
+.card-danger {
+  border: 1px solid var(--color-danger);
+}
+
+.card-danger .card-text {
+  color: var(--color-danger);
+}
+
+.card-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.card-text {
+  font-size: 15px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.card-arrow {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.card-order-badge {
+  margin-left: auto;
+  margin-right: 12rpx;
+  min-width: 30rpx;
+  height: 30rpx;
+  padding: 0 5rpx;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  background: #E95B3D;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 30rpx;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.card-myorders .card-arrow,
+.card-orders .card-arrow {
+  margin-left: 0;
+}

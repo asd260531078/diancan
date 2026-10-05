@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "今天想吃什么",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "drink-option-sheet": "/components/drink-option-sheet/index",
+    "food-option-sheet": "/components/food-option-sheet/index"
+  }
+}

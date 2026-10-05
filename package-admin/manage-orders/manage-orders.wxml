@@ -1,0 +1,45 @@
+<view class="manage-orders-page">
+  <scroll-view class="filter-scroll" scroll-x enable-flex="{{true}}">
+    <view class="filter-row">
+      <view
+        wx:for="{{filters}}"
+        wx:key="value"
+        class="filter-item {{filter === item.value ? 'active' : ''}}"
+        data-filter="{{item.value}}"
+        bindtap="changeFilter"
+      >
+        <text>{{item.label}}</text>
+        <text wx:if="{{item.value === 'pending' && chefPendingBadge}}" class="filter-badge">{{chefPendingBadge}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{loading}}" class="state-panel">正在读取订单...</view>
+  <view wx:elif="{{errorMessage}}" class="error-panel">
+    <text>{{errorMessage}}</text>
+    <view class="retry-button" bindtap="loadOrders">重新加载</view>
+  </view>
+  <view wx:elif="{{orders.length === 0}}" class="empty-panel">暂时没有订单</view>
+
+  <view wx:else class="order-list">
+    <view wx:for="{{orders}}" wx:key="id" class="order-card" bindtap="openOrder" data-orderid="{{item.id}}">
+      <view class="order-header">
+        <view>
+          <text class="order-no">{{item.orderNo}}</text>
+          <text class="order-time">{{item.createdAtText}}</text>
+        </view>
+        <text class="status-tag status-{{item.status}}">{{item.statusText}}</text>
+      </view>
+      <text class="user-name">{{item.userSnapshot.nickname || '家人 / 朋友'}}</text>
+      <view class="item-list">
+        <order-item-row wx:for="{{item.items}}" wx:for-item="food" wx:key="orderItemId" item="{{food}}" full-summary="{{true}}" />
+      </view>
+      <view wx:if="{{item.orderNote}}" class="note-box">备注：{{item.orderNote}}</view>
+      <view class="card-footer">
+        <text>共 {{item.itemCount}} 件</text>
+        <text class="detail-link">查看并处理 ›</text>
+      </view>
+    </view>
+    <view wx:if="{{hasMore}}" class="load-more" bindtap="loadMore">{{loadingMore ? '加载中...' : '加载更多'}}</view>
+  </view>
+</view>

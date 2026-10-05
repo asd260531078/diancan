@@ -1,0 +1,50 @@
+page { background: #f6f4f1; color: #332f2b; }
+.page { min-height: 100vh; padding: 24rpx 22rpx calc(90rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
+.state { padding: 180rpx 20rpx; color: #8b837b; text-align: center; }
+.section { margin-bottom: 22rpx; padding: 26rpx; border-radius: 20rpx; background: #fff; }
+.section-title { display: block; font-size: 31rpx; font-weight: 760; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-bottom: 20rpx; }
+.label { display: block; margin: 24rpx 0 10rpx; color: #625b55; font-size: 24rpx; }
+.control { width: 100%; min-height: 76rpx; padding: 16rpx 20rpx; box-sizing: border-box; border: 1rpx solid #e9e3dc; border-radius: 13rpx; background: #faf9f7; font-size: 26rpx; }
+.textarea { min-height: 150rpx; }
+.tip { display: block; margin-top: 8rpx; color: #918981; font-size: 21rpx; }
+.cover-row { display: flex; gap: 22rpx; align-items: center; }
+.cover { width: 180rpx; height: 140rpx; border-radius: 14rpx; background: #eee; }
+.cover-actions { display: flex; flex-direction: column; gap: 12rpx; }
+.small-button, .mini-button, .text-button { margin: 0; }
+.small-button { padding: 0 20rpx; border-radius: 13rpx; background: #f2ece7; color: #9d4937; font-size: 23rpx; line-height: 66rpx; }
+.small-button::after, .mini-button::after, .text-button::after { border: 0; }
+.text-button { padding: 0; background: transparent; font-size: 22rpx; line-height: 40rpx; }
+.danger, .delete-link { color: #c65a4b; }
+.empty-items { padding: 50rpx; color: #999; text-align: center; }
+.item-card { margin-top: 18rpx; padding: 18rpx; border: 1rpx solid #ebe5df; border-radius: 16rpx; }
+.item-card.missing { border-color: #e7afa6; background: #fff7f5; }
+.item-title-row, .item-controls, .item-identity, .switch-row { display: flex; align-items: center; }
+.item-title-row, .item-controls, .switch-row { justify-content: space-between; }
+.item-identity { min-width: 0; gap: 14rpx; }
+.item-cover { width: 88rpx; height: 88rpx; flex-shrink: 0; border-radius: 11rpx; }
+.item-name, .item-type { display: block; }
+.item-name { font-size: 27rpx; font-weight: 700; }
+.item-type { margin-top: 5rpx; color: #8c847d; font-size: 20rpx; }
+.delete-link { flex-shrink: 0; font-size: 22rpx; }
+.item-controls { margin-top: 16rpx; }
+.move-actions, .quantity-stepper { display: flex; align-items: center; gap: 12rpx; }
+.mini-button { padding: 0 16rpx; border-radius: 11rpx; background: #f3efeb; color: #625a54; font-size: 21rpx; line-height: 54rpx; }
+.quantity-circle { width: 54rpx; height: 54rpx; margin: 0; padding: 0; border-radius: 50%; background: #f2ede8; color: #9e4a37; font-size: 28rpx; line-height: 54rpx; }
+.quantity-circle::after { border: 0; }
+.switch-row { padding: 18rpx 0; border-bottom: 1rpx solid #f0ece8; font-size: 25rpx; }
+.save-button { margin: 30rpx 0 0; border-radius: 18rpx; background: #e35f43; color: #fff; font-size: 29rpx; line-height: 88rpx; }
+.save-button::after { border: 0; }
+.selector-overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 90; }
+.selector-mask { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.42); }
+.selector-panel { position: absolute; left: 0; right: 0; bottom: 0; height: 74vh; padding-bottom: env(safe-area-inset-bottom); border-radius: 28rpx 28rpx 0 0; background: #fff; overflow: hidden; }
+.selector-header { display: flex; justify-content: space-between; padding: 26rpx; font-size: 27rpx; font-weight: 700; }
+.category-nav { padding: 0 20rpx 18rpx; box-sizing: border-box; white-space: nowrap; }
+.category-option { display: inline-block; margin-right: 12rpx; padding: 12rpx 20rpx; border-radius: 12rpx; background: #f3efeb; color: #6d655e; font-size: 22rpx; }
+.category-option.active { background: #fff0e8; color: #b24f38; }
+.dish-options { height: calc(74vh - 150rpx - env(safe-area-inset-bottom)); }
+.dish-option { display: flex; align-items: center; gap: 16rpx; padding: 16rpx 24rpx; border-top: 1rpx solid #f1ede9; }
+.dish-option image { width: 86rpx; height: 86rpx; flex-shrink: 0; border-radius: 11rpx; }
+.dish-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 5rpx; font-size: 25rpx; }
+.dish-meta { color: #918981; font-size: 20rpx; }
+.add-state { color: #b24f38; font-size: 23rpx; }

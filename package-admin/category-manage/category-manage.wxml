@@ -1,0 +1,73 @@
+<view class="page">
+  <view class="header">
+    <view>
+      <text class="title">分类管理</text>
+      <text class="subtitle">维护菜品、饮品分类及显示顺序</text>
+    </view>
+    <button class="add-button" size="mini" bindtap="onAdd">＋ 新增分类</button>
+  </view>
+
+  <view wx:if="{{showEditor}}" class="editor-card">
+    <view class="editor-title">{{editingId ? '编辑分类' : '新增分类'}}</view>
+    <view class="field required">
+      <text class="label">名称</text>
+      <input class="control" data-field="name" value="{{form.name}}" bindinput="onFieldInput" maxlength="50" placeholder="如：家常菜" />
+    </view>
+    <view class="field required">
+      <text class="label">适用类型</text>
+      <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+        <view class="control picker">{{typeOptions[typeIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <text class="label">分类图片 / 图标</text>
+      <view class="icon-upload-row">
+        <image wx:if="{{displayFormIconImage}}" class="icon-preview" src="{{displayFormIconImage}}" mode="aspectFit" binderror="onCategoryIconError" data-cover="{{formIconImage}}" data-src="{{displayFormIconImage}}" data-fallback="" bindload="onCachedImageLoad" />
+        <view wx:else class="icon-preview icon-preview-empty">{{form.icon || '无图'}}</view>
+        <button class="icon-upload-button" size="mini" bindtap="onUploadIcon" disabled="{{uploadingIcon || saving}}">{{uploadingIcon ? '上传中' : '上传透明 PNG / 图片'}}</button>
+        <button wx:if="{{form.icon}}" class="icon-clear-button" size="mini" bindtap="onClearIcon" disabled="{{uploadingIcon || saving}}">清除</button>
+      </view>
+      <input class="control" data-field="icon" value="{{form.icon}}" bindinput="onFieldInput" maxlength="1000" placeholder="也可填写图标 key 或 cloud:// fileID" />
+      <text class="tip">图片保持透明背景；旧图标 key 继续可用。保存分类后才更新菜单。</text>
+    </view>
+    <view class="field">
+      <text class="label">排序值</text>
+      <input class="control" data-field="sort" value="{{form.sort}}" bindinput="onFieldInput" type="number" placeholder="数字越小越靠前" />
+    </view>
+    <view class="switch-row">
+      <text>启用分类</text>
+      <switch checked="{{form.enabled}}" bindchange="onEnabledChange" color="#A97A50" />
+    </view>
+    <view class="editor-actions">
+      <button class="cancel-button" bindtap="onCancelEdit" disabled="{{saving || uploadingIcon}}">取消</button>
+      <button class="save-button" bindtap="onSave" loading="{{saving}}" disabled="{{saving || uploadingIcon}}">保存</button>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty">正在读取分类...</view>
+  <view wx:elif="{{categories.length === 0}}" class="empty">还没有分类，请点击“新增分类”。</view>
+  <view wx:else class="category-list">
+    <view wx:for="{{categories}}" wx:key="id" class="category-card {{item.enabled ? '' : 'disabled-card'}}">
+      <view class="card-main">
+        <view class="card-heading">
+          <image wx:if="{{item.displayIconImage}}" class="category-list-icon" src="{{item.displayIconImage}}" mode="aspectFit" binderror="onCategoryIconError" data-id="{{item.id}}" data-cover="{{item.iconImage}}" data-src="{{item.displayIconImage}}" data-fallback="" bindload="onCachedImageLoad" />
+          <text class="category-name">{{item.name}}</text>
+          <text class="type-tag {{item.type}}">{{item.type === 'food' ? '菜品' : (item.type === 'drink' ? '饮品' : '全部类型')}}</text>
+          <text wx:if="{{!item.enabled}}" class="disabled-tag">已停用</text>
+        </view>
+        <text wx:if="{{item.iconImage}}" class="meta">已设置分类图片　排序：{{item.sort}}</text>
+        <text wx:else class="meta">图标：{{item.icon || '未设置'}}　排序：{{item.sort}}</text>
+      </view>
+      <view class="enable-row">
+        <text>{{item.enabled ? '已启用' : '已停用'}}</text>
+        <switch checked="{{item.enabled}}" data-id="{{item.id}}" bindchange="onToggleEnabled" color="#A97A50" />
+      </view>
+      <view class="card-actions">
+        <button size="mini" data-index="{{index}}" data-direction="up" bindtap="onMove" disabled="{{index === 0 || reordering}}">上移</button>
+        <button size="mini" data-index="{{index}}" data-direction="down" bindtap="onMove" disabled="{{index === categories.length - 1 || reordering}}">下移</button>
+        <button size="mini" data-id="{{item.id}}" bindtap="onEdit">编辑</button>
+        <button size="mini" class="delete-button" data-id="{{item.id}}" bindtap="onDelete">删除</button>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,11 @@
+@import "../../styles/theme.wxss";
+.order-product-row { display: flex; align-items: flex-start; gap: 14rpx; padding: 10rpx 0; min-width: 0; }
+.order-product-cover { width: 80rpx; height: 80rpx; flex: 0 0 80rpx; border-radius: var(--radius-sm); background: var(--color-surface-warm); }
+.order-product-main { flex: 1; min-width: 0; }
+.order-product-title { display: flex; align-items: baseline; gap: 6rpx; min-width: 0; color: var(--color-text-primary); font-size: 25rpx; line-height: 1.35; font-weight: 650; }
+.order-product-name { min-width: 0; overflow-wrap: anywhere; }
+.order-product-count { flex-shrink: 0; white-space: nowrap; }
+.order-product-summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; margin-top: 5rpx; color: var(--color-text-secondary); font-size: 21rpx; line-height: 1.45; }
+.order-product-summary.summary-full { display: block; overflow: visible; }
+.order-product-price { flex-shrink: 0; max-width: 130rpx; color: var(--color-price); font-size: 23rpx; font-weight: 700; white-space: nowrap; text-align: right; }
+.order-product-unpriced { color: var(--color-text-muted); }

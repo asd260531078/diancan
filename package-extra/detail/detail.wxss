@@ -1,0 +1,206 @@
+/* package-extra/detail/detail.wxss */
+.page {
+  padding: 30rpx;
+  padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.section {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin-bottom: 30rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  margin-bottom: 25rpx;
+  color: #333;
+}
+
+.detail-state { display: flex; flex-direction: column; align-items: center; padding: 220rpx 20rpx; color: #8f8a84; text-align: center; font-size: 27rpx; }
+.detail-state-text { display: block; }
+.detail-back-button { width: 240rpx; margin-top: 30rpx; background: #e85b3f; color: #fff; font-size: 26rpx; }
+.detail-back-button::after { border: 0; }
+.detail-cover { width: 100%; height: 460rpx; margin-bottom: 26rpx; border-radius: 22rpx; background: #f1efeb; }
+.detail-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 24rpx; }
+.detail-name { flex: 1; color: #292622; font-size: 40rpx; font-weight: 800; }
+.detail-price { color: var(--color-price); font-size: 34rpx; font-weight: 700; }
+.detail-description { display: block; margin-top: 20rpx; color: #77716b; font-size: 26rpx; line-height: 1.7; }
+.detail-status-list, .detail-tag-list, .detail-option-values, .detail-meta-list { display: flex; flex-wrap: wrap; gap: 10rpx; }
+.detail-status-list { margin-top: 18rpx; }
+.detail-status, .detail-tag, .detail-option { padding: 6rpx 14rpx; border-radius: 10rpx; font-size: 22rpx; }
+.detail-status.signature { background: #fff1c9; color: #916411; }
+.detail-status.recommended { background: #fff0eb; color: #d45137; }
+.detail-status.spicy { background: #fff2f0; color: #c54538; }
+.detail-status.admin-preview { background: #edf1f7; color: #53627a; }
+.detail-status.sold-out { background: #fce9e8; color: #b7433e; }
+.detail-status.unavailable { background: #eeeeec; color: #6e6b67; }
+.detail-tag-list { margin-top: 20rpx; }
+.detail-tag { background: #f1f4ef; color: #64705c; }
+.detail-meta-list { margin-top: 20rpx; }
+.detail-meta { padding: 7rpx 14rpx; background: #f7f5f1; border-radius: 10rpx; color: #6f6962; font-size: 22rpx; }
+.drink-options-section { border-top: 6rpx solid #dca75f; }
+.detail-option-row { padding: 20rpx 0; border-top: 1rpx solid #efede8; }
+.detail-option-row:first-of-type { padding-top: 0; border-top: 0; }
+.detail-option-label { display: block; margin-bottom: 14rpx; color: #393530; font-size: 26rpx; font-weight: 700; }
+.detail-option { background: #fff5ee; color: #a74d37; }
+.readonly-tip { margin-top: 22rpx; color: #99938d; font-size: 21rpx; line-height: 1.6; }
+.recipe-detail-section { border-top: 4rpx solid #eee9e1; }
+.ingredient-detail-item { padding: 18rpx 0; border-top: 1rpx solid #efede8; }
+.ingredient-detail-item:first-child { padding-top: 0; border-top: 0; }
+.ingredient-main-row { display: flex; justify-content: space-between; align-items: baseline; gap: 24rpx; }
+.ingredient-name { color: #36322e; font-size: 27rpx; font-weight: 600; }
+.ingredient-amount { flex-shrink: 0; color: #8b6338; font-size: 25rpx; }
+.ingredient-note { display: block; margin-top: 8rpx; color: #918b84; font-size: 23rpx; line-height: 1.55; }
+.step-detail-item { padding: 26rpx 0; border-top: 1rpx solid #efede8; }
+.step-detail-item:first-child { padding-top: 0; border-top: 0; }
+.step-detail-heading { display: flex; align-items: center; gap: 16rpx; margin-bottom: 14rpx; }
+.step-detail-number { flex-shrink: 0; padding: 7rpx 14rpx; background: #fff0e7; border-radius: 20rpx; color: #ad4b35; font-size: 22rpx; font-weight: 700; }
+.step-detail-title { color: #34302c; font-size: 28rpx; font-weight: 700; }
+.step-detail-description, .recipe-tips { display: block; color: #5f5a54; font-size: 26rpx; line-height: 1.75; white-space: pre-wrap; }
+.step-detail-image { display: block; width: 520rpx; max-width: 100%; max-height: 520rpx; margin-top: 18rpx; border-radius: 16rpx; background: #f1efeb; }
+.detail-order-placeholder { border: 1rpx dashed #ddd5cd; }
+.detail-order-button { background: #e3dfda !important; color: #8f8983 !important; }
+.detail-order-button-active { background: linear-gradient(135deg, #ef6a4c, #d84c35) !important; color: #fff !important; }
+.detail-order-button::after { border: 0; }
+.detail-order-tip { display: block; margin-top: 16rpx; color: #918b84; font-size: 23rpx; line-height: 1.6; text-align: center; }
+
+.dish-list {
+  display: flex;
+  flex-direction: column;
+  gap: 25rpx;
+}
+
+.dish-item {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.dish-thumb {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 15rpx;
+}
+
+.dish-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.dish-name {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.dish-price {
+  font-size: 24rpx;
+  color: var(--color-price);
+}
+
+.dish-summary {
+  color: #8b857f;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.dish-subtotal {
+  font-size: 30rpx;
+  color: var(--color-price);
+  font-weight: bold;
+}
+
+.input {
+  background: #f5f5f5;
+  border-radius: 15rpx;
+  padding: 25rpx 30rpx;
+  font-size: 28rpx;
+}
+
+.input-empty {
+  color: #999;
+}
+
+.address-picker {
+  display: flex;
+  gap: 20rpx;
+  align-items: center;
+}
+
+.address-picker .input {
+  flex: 1;
+}
+
+.choose-address-btn {
+  background: linear-gradient(135deg, #07c160 0%, #10b460 100%);
+  color: #fff;
+  padding: 20rpx 30rpx;
+  border-radius: 50rpx;
+  font-size: 26rpx;
+  font-weight: bold;
+  white-space: nowrap;
+  box-shadow: 0 6rpx 20rpx rgba(7, 193, 96, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.choose-address-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 3rpx 12rpx rgba(7, 193, 96, 0.2);
+}
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  padding: 30rpx;
+  padding-bottom: calc(30rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -4rpx 20rpx rgba(0,0,0,0.05);
+}
+
+.total {
+  font-size: 30rpx;
+  color: #333;
+}
+
+.total .price {
+  color: var(--color-price);
+  font-weight: bold;
+  font-size: 38rpx;
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #FF6347 0%, #E5533D 100%);
+  color: #fff;
+  padding: 25rpx 60rpx;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  box-shadow: 0 8rpx 25rpx rgba(255, 99, 71, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.submit-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 4rpx 15rpx rgba(255, 99, 71, 0.2);
+}
+
+.submit-btn-disabled {
+  background: #d9d5d0;
+  box-shadow: none;
+  color: #858079;
+}
+
+.readonly-order-tip {
+  color: #8f8983;
+  font-size: 25rpx;
+}

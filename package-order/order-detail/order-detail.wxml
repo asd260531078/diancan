@@ -1,0 +1,75 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="state-panel">正在读取订单...</view>
+  <view wx:elif="{{errorMessage}}" class="error-panel">
+    <text>{{errorMessage}}</text>
+    <view class="back-button" bindtap="goBack">返回</view>
+  </view>
+
+  <block wx:elif="{{order}}">
+    <view class="summary-card">
+      <view>
+        <text class="order-no">{{order.orderNo}}</text>
+        <text class="created-time">提交于 {{order.createdAtText}}</text>
+      </view>
+      <text class="status-tag status-{{order.status}}">{{order.statusText}}</text>
+    </view>
+
+    <view wx:if="{{isManage}}" class="section user-section">
+      <text class="section-title">点单人</text>
+      <text>{{order.userSnapshot.nickname || '家人 / 朋友'}}</text>
+      <text class="openid-text">{{order.userOpenId}}</text>
+    </view>
+
+    <view class="section">
+      <text class="section-title">点菜单</text>
+      <view wx:for="{{order.items}}" wx:key="orderItemId" class="order-item">
+        <image class="item-cover" src="{{item.displayCover || '/images/default-dish.png'}}" mode="aspectFill" binderror="onItemImageError" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover || '/images/default-dish.png'}}" bindload="onCachedImageLoad"></image>
+        <view class="item-main">
+          <view class="item-heading">
+            <text class="item-name">{{item.name}}</text>
+            <text class="item-quantity">×{{item.quantity}}</text>
+          </view>
+          <text wx:if="{{item.summaryText}}" class="item-summary">{{item.summaryText}}</text>
+          <view class="item-price-row">
+            <text class="{{item.unitPrice === null ? 'item-unpriced' : ''}}">{{item.unitPrice === null ? '未标价' : '单价 ¥' + item.unitPriceText}}</text>
+            <text class="{{item.lineAmount === null ? 'item-unpriced' : ''}}">{{item.lineAmount === null ? '小计未标价' : '小计 ¥' + item.lineAmountText}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="total-row">
+        <text>共 {{order.itemCount}} 件</text>
+        <text class="total-amount">合计 ¥{{order.totalAmountText}}</text>
+      </view>
+      <text wx:if="{{order.hasUnpricedItems}}" class="unpriced-tip">部分商品未标价，合计仅统计已标价商品。</text>
+    </view>
+
+    <view wx:if="{{order.orderNote}}" class="section">
+      <text class="section-title">整单备注</text>
+      <text class="order-note">{{order.orderNote}}</text>
+    </view>
+
+    <view class="section timeline-section">
+      <text class="section-title">状态记录</text>
+      <text wx:if="{{order.createdAtText}}">提交：{{order.createdAtText}}</text>
+      <text wx:if="{{order.confirmedAtText}}">确认：{{order.confirmedAtText}}</text>
+      <text wx:if="{{order.preparingAtText}}">制作：{{order.preparingAtText}}</text>
+      <text wx:if="{{order.completedAtText}}">完成：{{order.completedAtText}}</text>
+      <text wx:if="{{order.cancelledAtText}}">取消：{{order.cancelledAtText}}</text>
+    </view>
+
+    <view wx:if="{{!isManage && order.status === 'pending'}}" class="bottom-actions">
+      <button class="danger-button" disabled="{{operating}}" bindtap="cancelMyOrder">取消订单</button>
+    </view>
+    <view wx:if="{{isManage && manageActions.length > 0}}" class="bottom-actions manage-actions">
+      <button
+        wx:for="{{manageActions}}"
+        wx:key="status"
+        class="status-button {{item.primary ? 'primary' : ''}} {{item.danger ? 'danger' : ''}}"
+        disabled="{{operating}}"
+        data-status="{{item.status}}"
+        data-label="{{item.label}}"
+        bindtap="changeStatus"
+      >{{item.label}}</button>
+    </view>
+  </block>
+</view>

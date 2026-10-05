@@ -1,0 +1,77 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">正在读取套餐…</view>
+  <block wx:elif="{{isAdmin}}">
+    <view class="section">
+      <text class="section-title">基础信息</text>
+      <text class="label">套餐名称 *</text>
+      <input class="control" maxlength="30" data-field="name" value="{{form.name}}" bindinput="onFieldInput" placeholder="如：两人晚餐"></input>
+      <text class="label">套餐简介</text>
+      <textarea class="control textarea" maxlength="200" data-field="description" value="{{form.description}}" bindinput="onFieldInput" placeholder="简单介绍这套搭配"></textarea>
+      <text class="label">套餐封面</text>
+      <view class="cover-row">
+        <image class="cover" src="{{form.displayCover || '/images/default-dish.png'}}" mode="aspectFill" data-cover="{{form.cover || form.legacyCover || form.image}}" data-src="{{form.displayCover || '/images/default-dish.png'}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+        <view class="cover-actions">
+          <button class="small-button" bindtap="onChooseCover" loading="{{uploading}}">{{form.cover ? '替换封面' : '上传封面'}}</button>
+          <button wx:if="{{form.cover}}" class="text-button danger" bindtap="onRemoveCover">移除封面</button>
+        </view>
+      </view>
+      <text class="label">标签</text>
+      <input class="control" maxlength="220" data-field="tagsText" value="{{form.tagsText}}" bindinput="onFieldInput" placeholder="两人食，晚餐，下饭"></input>
+      <text class="tip">最多 10 个标签，使用逗号分隔。</text>
+    </view>
+
+    <view class="section">
+      <view class="section-heading">
+        <view><text class="section-title">套餐内容 *</text><text class="tip">{{form.items.length}} / {{maxItems}} 种商品</text></view>
+        <button class="small-button" bindtap="onOpenSelector">＋ 添加商品</button>
+      </view>
+      <view wx:if="{{form.items.length === 0}}" class="empty-items">至少添加 1 个商品</view>
+      <view wx:for="{{form.items}}" wx:key="dishId" class="item-card {{item.missing ? 'missing' : ''}}">
+        <view class="item-title-row">
+          <view class="item-identity">
+            <image class="item-cover" src="{{item.displayCover}}" mode="aspectFill" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+            <view><text class="item-name">{{item.name}}</text><text class="item-type">{{item.typeText}}</text></view>
+          </view>
+          <text class="delete-link" data-index="{{index}}" bindtap="onRemoveItem">删除</text>
+        </view>
+        <view class="item-controls">
+          <view class="move-actions">
+            <button class="mini-button" disabled="{{index === 0}}" data-index="{{index}}" data-direction="up" bindtap="onMoveItem">上移</button>
+            <button class="mini-button" disabled="{{index === form.items.length - 1}}" data-index="{{index}}" data-direction="down" bindtap="onMoveItem">下移</button>
+          </view>
+          <view class="quantity-stepper">
+            <button class="quantity-circle" disabled="{{item.quantity <= 1}}" data-index="{{index}}" data-action="decrease" bindtap="onQuantity">−</button>
+            <text>{{item.quantity}}</text>
+            <button class="quantity-circle" disabled="{{item.quantity >= 99}}" data-index="{{index}}" data-action="increase" bindtap="onQuantity">＋</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">展示设置</text>
+      <label class="switch-row"><text>小高推荐</text><switch checked="{{form.recommended}}" data-field="recommended" bindchange="onSwitchChange" color="#E85B3F"></switch></label>
+      <label class="switch-row"><text>启用套餐</text><switch checked="{{form.enabled}}" data-field="enabled" bindchange="onSwitchChange" color="#E85B3F"></switch></label>
+      <text class="label">排序值</text>
+      <input class="control" type="number" data-field="sort" value="{{form.sort}}" bindinput="onFieldInput"></input>
+    </view>
+    <button class="save-button" bindtap="onSave" loading="{{saving}}" disabled="{{saving}}">保存套餐</button>
+  </block>
+
+  <view wx:if="{{selectorVisible}}" class="selector-overlay">
+    <view class="selector-mask" bindtap="onCloseSelector"></view>
+    <view class="selector-panel">
+      <view class="selector-header"><text>选择套餐商品</text><text bindtap="onCloseSelector">完成</text></view>
+      <scroll-view class="category-nav" scroll-x enable-flex="{{true}}">
+        <text wx:for="{{categories}}" wx:key="id" class="category-option {{selectorCategoryId === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onCategoryFilter">{{item.name}}</text>
+      </scroll-view>
+      <scroll-view class="dish-options" scroll-y>
+        <view wx:for="{{filteredDishes}}" wx:key="id" class="dish-option" data-id="{{item.id}}" bindtap="onAddDish">
+          <image src="{{item.displayCover}}" mode="aspectFill" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+          <view class="dish-copy"><text>{{item.name}}</text><text class="dish-meta">{{item.categoryName}} · {{item.enabled ? '上架' : '下架'}}</text></view>
+          <text class="add-state">{{item.alreadyAdded ? '＋1' : '添加'}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

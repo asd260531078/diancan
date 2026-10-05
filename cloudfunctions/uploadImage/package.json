@@ -1,0 +1,8 @@
+{
+  "name": "uploadImage",
+  "version": "1.0.0",
+  "description": "上传图片到微信云开发云存储",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

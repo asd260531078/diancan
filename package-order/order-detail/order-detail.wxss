@@ -1,0 +1,39 @@
+.detail-page { min-height: 100vh; padding: 24rpx 24rpx calc(150rpx + env(safe-area-inset-bottom)); box-sizing: border-box; background: #f5f4f1; color: #37322e; }
+.state-panel, .error-panel { padding: 220rpx 30rpx; color: #8e877f; text-align: center; }
+.error-panel { display: flex; flex-direction: column; align-items: center; gap: 20rpx; }
+.back-button { padding: 14rpx 28rpx; border-radius: 28rpx; background: #fff0ea; color: #c74f37; }
+.summary-card, .section { margin-bottom: 22rpx; padding: 27rpx; border-radius: 21rpx; background: #fff; box-shadow: 0 4rpx 18rpx rgba(45, 37, 30, 0.04); }
+.summary-card { display: flex; justify-content: space-between; align-items: flex-start; gap: 20rpx; }
+.order-no, .created-time { display: block; }
+.order-no { font-size: 29rpx; font-weight: 750; }
+.created-time { margin-top: 8rpx; color: #938c84; font-size: 22rpx; }
+.status-tag { flex-shrink: 0; padding: 8rpx 17rpx; border-radius: 25rpx; font-size: 23rpx; }
+.status-pending { background: #fff5df; color: #a86d13; }
+.status-confirmed { background: #eaf4ff; color: #3178b7; }
+.status-preparing { background: #fff0e7; color: #c35c2f; }
+.status-completed { background: #eaf7ee; color: #368250; }
+.status-cancelled { background: #f2f1ef; color: #817b74; }
+.section-title { display: block; margin-bottom: 20rpx; font-size: 29rpx; font-weight: 700; }
+.user-section { display: flex; flex-direction: column; gap: 8rpx; }
+.openid-text { color: #a29b93; font-size: 19rpx; overflow-wrap: anywhere; }
+.order-item { display: flex; gap: 18rpx; padding: 20rpx 0; border-bottom: 1rpx solid #efebe6; }
+.item-cover { width: 108rpx; height: 108rpx; flex-shrink: 0; border-radius: 15rpx; background: #f0ede9; }
+.item-main { min-width: 0; flex: 1; }
+.item-heading, .item-price-row { display: flex; justify-content: space-between; gap: 18rpx; }
+.item-name { min-width: 0; font-size: 27rpx; font-weight: 650; overflow-wrap: anywhere; }
+.item-quantity { flex-shrink: 0; color: #736c65; }
+.item-summary { display: block; margin-top: 8rpx; color: #8c857e; font-size: 22rpx; line-height: 1.55; overflow-wrap: anywhere; }
+.item-price-row { margin-top: 10rpx; color: var(--color-price); font-size: 21rpx; }
+.item-unpriced { color: var(--color-text-muted); }
+.total-row { display: flex; justify-content: space-between; margin-top: 22rpx; color: #777069; }
+.total-amount { color: var(--color-price); font-size: 28rpx; font-weight: 750; }
+.unpriced-tip { display: block; margin-top: 10rpx; color: #9b6d39; font-size: 21rpx; }
+.order-note { color: #5e5852; font-size: 25rpx; line-height: 1.7; white-space: pre-wrap; }
+.timeline-section { display: flex; flex-direction: column; gap: 10rpx; color: #756e67; font-size: 23rpx; }
+.timeline-section .section-title { margin-bottom: 10rpx; color: #37322e; }
+.bottom-actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 28rpx; }
+.bottom-actions button::after { border: 0; }
+.danger-button, .status-button { min-width: 190rpx; margin: 0; border-radius: 38rpx; font-size: 25rpx; line-height: 76rpx; }
+.danger-button, .status-button.danger { background: #fff0ed; color: #be503f; }
+.status-button.primary { background: linear-gradient(135deg, #ef6a4c, #d84c35); color: #fff; }
+.manage-actions { flex-wrap: wrap; }

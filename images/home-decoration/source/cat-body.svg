@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="220" viewBox="0 0 200 220">
+  <g stroke="#76533A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 178C18 188 16 150 34 149C47 148 32 162 47 165" fill="#EBDCC2"/>
+    <path d="M62 119C42 135 34 165 43 188C50 204 75 207 101 207C129 207 153 202 160 187C170 162 155 130 142 120Z" fill="#FFF7E8"/>
+    <path d="M58 147C50 165 50 181 60 190M140 148C148 166 147 178 140 188" fill="none" stroke="#D7BD97" stroke-width="3"/>
+    <path d="M51 53L49 23Q49 13 57 18L79 36Q101 29 122 36L144 18Q152 13 153 23L153 55C170 74 169 103 151 119C126 141 75 138 53 121C31 104 31 75 51 53Z" fill="#FFF9ED"/>
+    <path d="M57 48L57 27L75 42M130 42L145 28L145 49" fill="#C78B76" stroke="none"/>
+    <path d="M89 35Q98 38 101 53Q106 39 114 35" fill="#B38A61" stroke="none"/>
+    <path d="M62 82Q71 73 81 82M120 82Q129 73 139 82" fill="none"/>
+    <ellipse cx="59" cy="100" rx="9" ry="5" fill="#E8B69B" stroke="none"/>
+    <ellipse cx="143" cy="100" rx="9" ry="5" fill="#E8B69B" stroke="none"/>
+    <path d="M95 94Q101 90 107 94L101 100Z" fill="#AC624F" stroke="none"/>
+    <path d="M101 100V105M101 105Q95 112 89 105M101 105Q107 112 113 105" fill="none" stroke-width="3"/>
+    <path d="M47 91L60 94M45 103L58 103M143 94L157 91M145 103H158" stroke-width="2.5"/>
+    <path d="M61 129Q101 145 141 129" fill="none" stroke="#AC4B3C" stroke-width="9"/>
+    <circle cx="101" cy="143" r="10" fill="#D9AF58" stroke="#916D36" stroke-width="2.5"/>
+    <path d="M95 142H107M101 145V149" stroke="#916D36" stroke-width="2"/>
+    <ellipse cx="103" cy="181" rx="29" ry="25" fill="#D7AD5C" stroke="#9A753F" stroke-width="3"/>
+    <ellipse cx="103" cy="181" rx="23" ry="19" fill="none" stroke="#F1D491" stroke-width="2"/>
+    <path d="M102 168V193M94 174H111M92 183H113M96 190L103 182L110 190" fill="none" stroke="#9B753F" stroke-width="3"/>
+    <path d="M58 151Q49 153 54 166L66 180Q75 184 80 176Q83 168 74 163L66 154Z" fill="#FFF9ED" stroke-width="3"/>
+    <path d="M64 167L69 173M60 172L65 177" stroke="#B69A75" stroke-width="2"/>
+    <path d="M49 194Q62 184 78 193Q86 198 81 205H49Q42 202 49 194ZM125 194Q141 185 153 195Q160 202 152 205H121Q118 199 125 194Z" fill="#FFF9ED" stroke-width="3"/>
+    <path d="M59 197V203M69 197V204M132 197V204M142 197V203" stroke="#B69A75" stroke-width="2"/>
+  </g>
+</svg>

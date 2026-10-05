@@ -1,0 +1,74 @@
+<view wx:if="{{visible}}" class="drink-sheet-layer brand-theme">
+  <view class="drink-sheet-mask" bindtap="close" catchtouchmove="noop"></view>
+  <view class="drink-sheet" catchtap="noop">
+    <view class="drink-sheet-header">
+      <text class="drink-sheet-title">选择饮品规格</text>
+      <text class="drink-sheet-close" bindtap="close">关闭</text>
+    </view>
+
+    <scroll-view class="drink-sheet-scroll" scroll-y enable-flex="{{true}}">
+      <view class="drink-product">
+        <image class="drink-product-cover" src="{{displayCover || '/images/default-dish.png'}}" mode="aspectFill" data-cover="{{cover}}" data-src="{{displayCover || '/images/default-dish.png'}}" binderror="onCachedImageError" bindload="onCachedImageLoad"></image>
+        <view class="drink-product-info">
+          <text class="drink-product-name">{{dish.name}}</text>
+          <text wx:if="{{dish.description}}" class="drink-product-description">{{dish.description}}</text>
+        </view>
+      </view>
+
+      <view wx:for="{{groups}}" wx:key="key" class="drink-option-group">
+        <view class="drink-option-heading">
+          <text class="drink-option-label">{{item.label}}</text>
+          <text class="drink-option-rule">{{item.multiple ? '可多选' : '单选'}}</text>
+        </view>
+        <view class="spec-option-list">
+          <block wx:if="{{item.multiple}}">
+            <view
+              wx:for="{{item.options}}"
+              wx:for-item="option"
+              wx:key="value"
+              class="spec-option {{option.selected ? 'spec-option-active' : ''}}"
+              data-value="{{option.value}}"
+              bindtap="onToppingTap"
+            >
+              <text>{{option.value}}</text>
+            </view>
+          </block>
+          <block wx:else>
+            <view
+              wx:for="{{item.options}}"
+              wx:for-item="option"
+              wx:key="value"
+              class="spec-option {{option.selected ? 'spec-option-active' : ''}}"
+              data-field="{{item.key}}"
+              data-value="{{option.value}}"
+              bindtap="onSingleOptionTap"
+            >
+              <view wx:if="{{item.key === 'cupSize'}}" class="cup-icon"><view class="cup-rim" /><view class="cup-body" /></view>
+              <text>{{option.value}}</text>
+            </view>
+          </block>
+        </view>
+      </view>
+      <view class="drink-sheet-scroll-spacer"></view>
+    </scroll-view>
+
+    <view class="drink-sheet-footer">
+      <view class="drink-selection-summary">
+        <text class="drink-price {{hasPrice ? '' : 'drink-price-unset'}}">{{hasPrice ? '¥' + lineAmount : '未标价'}}</text>
+        <text class="drink-summary-label">已选：</text>
+        <text class="drink-summary-text">{{summaryText || '暂未选择规格'}}</text>
+      </view>
+      <view class="drink-footer-actions">
+        <view class="drink-meta-row">
+          <text wx:if="{{missing.length > 0}}" class="drink-missing-text">{{missing[0].message}}</text>
+          <view class="quantity-stepper drink-quantity">
+            <button class="quantity-circle" disabled="{{quantity <= 1}}" bindtap="decreaseQuantity">-</button>
+            <text class="quantity-value">{{quantity}}</text>
+            <button class="quantity-circle" disabled="{{quantity >= maxQuantity}}" bindtap="increaseQuantity">+</button>
+          </view>
+        </view>
+        <button class="drink-confirm-button {{!canConfirm ? 'disabled' : ''}}" disabled="{{!canConfirm}}" bindtap="confirm">{{confirmText || '加入点菜单'}}</button>
+      </view>
+    </view>
+  </view>
+</view>
