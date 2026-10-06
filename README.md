@@ -73,3 +73,4 @@ MIT
 
 - `docs/FIRST_ROUND_SETUP.md`
 - `docs/DATA_MIGRATION.md`
+- `docs/PERFORMANCE_AND_DEPLOY.md`（流畅度优化说明、云函数部署、索引、实时收单与订阅消息配置）

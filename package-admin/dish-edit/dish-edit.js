@@ -245,6 +245,11 @@ Page({
         return;
       }
 
+      // 分类和菜品详情同时请求，进入编辑页少等一次往返。
+      const detailRequest = this.data.dishId
+        ? catalogService.getDishDetail(this.data.dishId, { includeDisabled: true, force: true })
+        : null;
+      if (detailRequest) detailRequest.catch(() => {});
       let categoryResult = await catalogService.listCategories({
         includeDisabled: true,
         allowLocalFallback: false,
@@ -259,11 +264,8 @@ Page({
       const categories = categoryResult.items;
       let form;
       if (this.data.dishId) {
-        const dishResult = await catalogService.listDishes({
-          includeDisabled: true,
-          allowLocalFallback: false,
-        });
-        const dish = dishResult.items.find(item => item.id === this.data.dishId);
+        // 编辑必须拿完整数据（含食材/步骤/图集），列表接口只返回摘要，保存时会丢做法。
+        const { item: dish } = await detailRequest;
         if (!dish) throw new Error('未找到需要编辑的菜品');
         form = dishToForm(dish);
       } else {
@@ -794,10 +796,9 @@ Page({
     try {
       wx.showLoading({ title: '上传中', mask: true });
       const purpose = this.data.form.type === 'drink' ? 'drink-gallery' : 'dish-gallery';
-      for (let index = 0; index < paths.length; index += 1) {
-        const result = await imageService.uploadImage(paths[index], purpose);
-        uploaded.push(result.fileID);
-      }
+      // 多张图并发上传（同时 2 张），比逐张串行快一倍左右。
+      const results = await imageService.uploadImages(paths, purpose);
+      uploaded = results.map(result => result.fileID);
       const images = [...this.data.form.images, ...uploaded].filter((url, index, list) => list.indexOf(url) === index);
       imageCache.setImageData(this, { 'form.images': images }, null, { details: true });
     } catch (error) {

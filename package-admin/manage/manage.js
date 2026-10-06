@@ -4,6 +4,10 @@ const authService = require('../../services/auth');
 const catalogService = require('../../services/catalog');
 const imageCache = require('../../services/imageCache');
 const chefOrderReminder = require('../../services/chef-order-reminder');
+const notifySubscription = require('../../services/order-notify-subscription');
+
+// 菜多时分批渲染，滚到底再追加。
+const MANAGE_PAGE_SIZE = 30;
 
 const QUICK_STATUS_MESSAGES = {
   enabled: { true: '已上架', false: '已下架' },
@@ -20,6 +24,10 @@ Page({
     categories: [],
     hasLegacyDishes: false,
     chefPendingBadge: '',
+    searchKey: '',
+    totalCount: 0,
+    hasMore: false,
+    notifyConfigured: notifySubscription.isConfigured(),
   },
 
   onLoad() {
@@ -33,12 +41,15 @@ Page({
   },
 
   onUnload() {
+    clearTimeout(this._searchTimer);
     imageCache.releaseView(this);
     if (this._unsubscribeChefBadge) this._unsubscribeChefBadge();
   },
 
   async initialize() {
-    this.setData({ loading: true, hasLegacyDishes: catalogService.getLocalDishes().length > 0 });
+    // 已加载过：后台静默刷新，不再整页变成“正在连接”。
+    const silent = this.data.isAuthorized && Array.isArray(this._allDishes);
+    this.setData({ loading: !silent, hasLegacyDishes: catalogService.getLocalDishes().length > 0 });
     try {
       // 页面结果仅控制显示；所有写操作仍由云函数 assertAdmin 再校验。
       const session = await authService.getSession(true);
@@ -67,13 +78,50 @@ Page({
   },
 
   async loadCatalog() {
-    const dishResult = await catalogService.listDishes({ includeDisabled: true, allowLocalFallback: false });
-    let categoryResult = await catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false });
+    const [dishResult, firstCategoryResult] = await Promise.all([
+      catalogService.listDishes({ includeDisabled: true, allowLocalFallback: false }),
+      catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false }),
+    ]);
+    let categoryResult = firstCategoryResult;
     if (categoryResult.items.length === 0) {
       await catalogService.seedDefaultCategories();
       categoryResult = await catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false });
     }
-    imageCache.setImageData(this, { dishes: dishResult.items, categories: categoryResult.items, loading: false });
+    this._allDishes = dishResult.items;
+    this.setData({ categories: categoryResult.items });
+    this.renderDishList();
+  },
+
+  filteredDishes() {
+    const key = String(this.data.searchKey || '').trim().toLowerCase();
+    const all = this._allDishes || [];
+    return key ? all.filter(dish => String(dish.name || '').toLowerCase().includes(key)) : all;
+  },
+
+  // 只渲染已滚到的部分（至少保留当前已显示的数量，刷新后不跳回顶部）。
+  renderDishList(minCount = MANAGE_PAGE_SIZE) {
+    const list = this.filteredDishes();
+    const count = Math.max(minCount, Math.min(this.data.dishes.length, list.length));
+    imageCache.setImageData(this, {
+      dishes: list.slice(0, count),
+      totalCount: list.length,
+      hasMore: list.length > count,
+      loading: false,
+    });
+  },
+
+  onReachBottom() {
+    if (!this.data.hasMore) return;
+    this.renderDishList(this.data.dishes.length + MANAGE_PAGE_SIZE);
+  },
+
+  onSearchInput(event) {
+    this.setData({ searchKey: event.detail.value });
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => {
+      this.setData({ dishes: [] });
+      this.renderDishList();
+    }, 150);
   },
 
   onAddDish() {
@@ -84,6 +132,11 @@ Page({
   onManageCategories() {
     if (!this.data.isAuthorized) return;
     wx.navigateTo({ url: '/package-admin/category-manage/category-manage' });
+  },
+
+  // 必须由点击直接触发，微信才会弹出订阅授权。
+  onEnableOrderNotify() {
+    notifySubscription.requestNewOrderSubscription({ explicit: true });
   },
 
   onManageOrders() {
@@ -128,9 +181,13 @@ Page({
     const field = event.currentTarget.dataset.field;
     if (!['enabled', 'availableToday', 'soldOut'].includes(field)) return;
     const value = Boolean(event.detail.value);
+    // 开关已经在界面上切换了：先本地更新这一道菜，再写云端，不整表重载。
+    const index = this.data.dishes.findIndex(item => item.id === dishId);
+    const cached = (this._allDishes || []).find(item => item.id === dishId);
+    if (cached) cached[field] = value;
+    if (index >= 0) this.setData({ [`dishes[${index}].${field}`]: value });
     try {
       await catalogService.updateDish(dishId, { [field]: value });
-      await this.loadCatalog();
       wx.showToast({ title: QUICK_STATUS_MESSAGES[field][String(value)], icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message || '操作失败', icon: 'none' });

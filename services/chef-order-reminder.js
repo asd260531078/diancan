@@ -1,6 +1,8 @@
 const orderService = require('./orders');
 
 const POLL_INTERVAL_MS = 15000;
+// 实时监听正常时，轮询只作为兜底，降到每分钟一次。
+const WATCH_FALLBACK_POLL_MS = 60000;
 const PAGE_SIZE = 50;
 
 let timer = null;
@@ -9,6 +11,9 @@ let initialized = false;
 let refreshRequest = null;
 let requestGeneration = 0;
 let knownPendingIds = new Set();
+let watcher = null;
+let watchHealthy = false;
+let lastRefreshAt = 0;
 let state = {
   pendingCount: 0,
   pendingBadge: '',
@@ -81,6 +86,7 @@ function notifyNewOrder() {
 
 async function refresh(options = {}) {
   if (refreshRequest) return refreshRequest;
+  lastRefreshAt = Date.now();
   const shouldNotify = options.notify !== false;
   const generation = requestGeneration;
   const request = (async () => {
@@ -110,11 +116,49 @@ async function refresh(options = {}) {
   return refreshRequest;
 }
 
+// 用云数据库实时推送感知新订单：有变化立刻刷新（真正的数据仍由云函数按管理员权限读取）。
+// 需要在云开发控制台给 orders 集合配置“管理员可读”的安全规则；没配置时自动退回 15 秒轮询。
+function startWatch() {
+  if (watcher || typeof wx === 'undefined' || !wx.cloud || typeof wx.cloud.database !== 'function') return;
+  try {
+    watcher = wx.cloud.database().collection('orders').where({ status: 'pending' }).watch({
+      onChange(snapshot) {
+        watchHealthy = true;
+        if (snapshot && snapshot.type === 'init') return;
+        refresh();
+      },
+      onError(error) {
+        console.warn('订单实时监听不可用，改用定时刷新', error && (error.errMsg || error.message));
+        watchHealthy = false;
+        closeWatch();
+      },
+    });
+  } catch (error) {
+    watchHealthy = false;
+    watcher = null;
+  }
+}
+
+function closeWatch() {
+  const current = watcher;
+  watcher = null;
+  watchHealthy = false;
+  if (current && typeof current.close === 'function') {
+    try { current.close(); } catch (_) { /* 已断开 */ }
+  }
+}
+
+function poll() {
+  if (watchHealthy && Date.now() - lastRefreshAt < WATCH_FALLBACK_POLL_MS) return Promise.resolve(snapshot());
+  return refresh();
+}
+
 function start() {
   if (active) return refresh();
   active = true;
   const initialRefresh = refresh();
-  timer = setInterval(() => refresh(), POLL_INTERVAL_MS);
+  timer = setInterval(() => poll(), POLL_INTERVAL_MS);
+  startWatch();
   return initialRefresh;
 }
 
@@ -122,6 +166,7 @@ function stop() {
   active = false;
   if (timer) clearInterval(timer);
   timer = null;
+  closeWatch();
   requestGeneration += 1;
   refreshRequest = null;
 }

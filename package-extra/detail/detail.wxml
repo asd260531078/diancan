@@ -31,6 +31,9 @@
         </view>
       </view>
 
+      <view wx:if='{{recipeLoading}}' class='section recipe-detail-section recipe-state'><text class='recipe-state-mark' />做法加载中…</view>
+      <view wx:elif='{{recipeError}}' class='section recipe-detail-section recipe-state' bindtap='retryRecipe'>做法没加载出来，点这里再试一次</view>
+
       <view wx:if='{{singleDish.type === "drink" && drinkSpecRows.length > 0}}' class='section drink-options-section'>
         <view class='section-title'>饮品规格</view>
         <view wx:for='{{drinkSpecRows}}' wx:key='key' class='detail-option-row'>
@@ -39,7 +42,7 @@
             <text wx:for='{{item.values}}' wx:for-item='value' wx:key='*this' class='detail-option'>{{value}}</text>
           </view>
         </view>
-        <view class='readonly-tip'>本页面仅展示支持的规格，点单选择将在后续购物车阶段开放。</view>
+        <view class='readonly-tip'>本页面仅展示支持的规格，加入点菜单时再具体选择。</view>
       </view>
 
       <view wx:if='{{singleDish.ingredients.length > 0}}' class='section recipe-detail-section'>
@@ -89,7 +92,7 @@
           bindtap='openFoodOptionsFromDetail'
         >加入点菜单</button>
         <text wx:if='{{singleDish.restrictionText}}' class='detail-order-tip'>当前状态：{{singleDish.restrictionText}}</text>
-        <text wx:elif='{{singleDish.type === "drink"}}' class='detail-order-tip'>选择饮品规格后加入点菜单，不会在本阶段提交订单。</text>
+        <text wx:elif='{{singleDish.type === "drink"}}' class='detail-order-tip'>选好规格后加入点菜单，确认后再提交给厨师。</text>
         <text wx:else class='detail-order-tip'>如有可选口味或特殊要求，选择后加入点菜单。</text>
       </view>
     </block>

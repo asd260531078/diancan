@@ -22,6 +22,8 @@ Page({
     detailCanOrder: false,
     detailHasPrice: false,
     detailIsAdminPreview: false,
+    recipeLoading: false,
+    recipeError: false,
     fromCart: false,
     singleDish: null,
     drinkSpecRows: [],
@@ -56,9 +58,9 @@ Page({
   async loadCartData() {
     const { items: dishes } = await catalogService.listDishes();
     const cart = cartService.loadCart({ dishes });
-    
+    const dishById = new Map(dishes.map(dish => [dish.id, dish]));
     const cartItems = cart.map(item => {
-      const dish = dishes.find(d => d.id === item.dishId);
+      const dish = dishById.get(item.dishId);
       return {
         ...item,
         price: item.unitPrice,
@@ -72,18 +74,18 @@ Page({
     imageCache.setImageData(this, { dishes: cartItems, totalPrice });
   },
 
+  // 先用菜单里已有的摘要立即出画面，再在后台补齐做法/食材。
   async loadSingleDish(dishId) {
+    const summary = catalogService.peekDish(dishId);
+    if (summary) this.renderDish(summary, { recipeLoading: true });
     try {
-      let { item: dish } = await catalogService.getDish(dishId, { allowLocalFallback: false });
+      let { item: dish } = await catalogService.getDishDetail(dishId);
       let detailIsAdminPreview = false;
       if (!dish) {
         try {
           const session = await authService.getSession(true);
           if (session.isAdmin) {
-            const adminResult = await catalogService.getDish(dishId, {
-              includeDisabled: true,
-              allowLocalFallback: false,
-            });
+            const adminResult = await catalogService.getDishDetail(dishId, { includeDisabled: true });
             dish = adminResult.item;
             detailIsAdminPreview = Boolean(dish);
           }
@@ -92,7 +94,7 @@ Page({
         }
       }
       if (!dish) {
-        this.setData({ detailLoading: false, detailNotFound: true });
+        this.setData({ detailLoading: false, detailNotFound: true, singleDish: null, recipeLoading: false });
         wx.showModal({
           title: '无法查看',
           content: '该菜品已下架',
@@ -101,28 +103,49 @@ Page({
         });
         return;
       }
-      const safeDish = decorateDetailDish(dish);
-      const status = dishStatusView(safeDish);
-      const detailDish = { ...safeDish, ...status };
-      wx.setNavigationBarTitle({ title: dish.name || '菜品详情' });
-      imageCache.setImageData(this, {
-        detailLoading: false,
-        detailNotFound: false,
-        detailCanOrder: detailIsAdminPreview ? false : status.canOrder,
-        detailHasPrice: dish.price !== null && dish.price !== undefined && dish.price !== '',
-        detailIsAdminPreview,
-        singleDish: detailDish,
-        drinkSpecRows: buildDrinkSpecRows(detailDish),
-        detailSpicyText: SPICY_TEXT[dish.spicyLevel] || '',
-        detailSpicyLabel: SPICY_LABEL[dish.spicyLevel] || '',
-        totalPrice: dish.price === null || dish.price === undefined ? 0 : dish.price,
-        dishes: [{ ...detailDish, num: 1, dishId: dish.id }],
-      }, null, { details: true });
+      this.renderDish(dish, { detailIsAdminPreview });
     } catch (error) {
       console.error('加载菜品详情失败', error);
+      if (summary) {
+        // 网络不好时保留已显示的信息，只提示做法没加载出来。
+        this.setData({ recipeLoading: false, recipeError: true });
+        return;
+      }
       this.setData({ detailLoading: false, detailNotFound: true });
       wx.showToast({ title: error.message || '详情加载失败', icon: 'none' });
     }
+  },
+
+  renderDish(dish, options = {}) {
+    const detailIsAdminPreview = Boolean(options.detailIsAdminPreview);
+    const safeDish = decorateDetailDish(dish);
+    const status = dishStatusView(safeDish);
+    const detailDish = { ...safeDish, ...status };
+    if (!this.data.singleDish || this.data.singleDish.name !== dish.name) {
+      wx.setNavigationBarTitle({ title: dish.name || '菜品详情' });
+    }
+    imageCache.setImageData(this, {
+      detailLoading: false,
+      detailNotFound: false,
+      recipeLoading: Boolean(options.recipeLoading),
+      recipeError: false,
+      detailCanOrder: detailIsAdminPreview ? false : status.canOrder,
+      detailHasPrice: dish.price !== null && dish.price !== undefined && dish.price !== '',
+      detailIsAdminPreview,
+      singleDish: detailDish,
+      drinkSpecRows: buildDrinkSpecRows(detailDish),
+      detailSpicyText: SPICY_TEXT[dish.spicyLevel] || '',
+      detailSpicyLabel: SPICY_LABEL[dish.spicyLevel] || '',
+      totalPrice: dish.price === null || dish.price === undefined ? 0 : dish.price,
+      dishes: [{ ...detailDish, num: 1, dishId: dish.id }],
+    }, null, { details: true });
+  },
+
+  retryRecipe() {
+    const dish = this.data.singleDish;
+    if (!dish) return;
+    this.setData({ recipeLoading: true, recipeError: false });
+    this.loadSingleDish(dish.id);
   },
 
   goBackToMenu() {
@@ -158,10 +181,15 @@ Page({
     this.setData({ foodOptionVisible: false });
   },
 
-  async addDetailFoodToCart(dish, selectedOptions, quantity) {
+  addDetailFoodToCart(dish, selectedOptions, quantity) {
+    this.addDetailDishToCart(dish, selectedOptions, quantity, 'foodOptionVisible');
+  },
+
+  // 用详情页刚拉到的最新数据（或菜单内存里的更新状态）判断能否点，不再整单重拉菜单。
+  // 下单时云端还会再校验一次售罄/下架。
+  addDetailDishToCart(dish, selectedOptions, quantity, sheetKey) {
     try {
-      const { items: dishes } = await catalogService.listDishes({ allowLocalFallback: false });
-      const currentDish = dishes.find(item => item.id === dish.id);
+      const currentDish = catalogService.peekDish(dish.id) || dish;
       const restriction = currentDish
         ? getDishRestriction(currentDish)
         : getDishRestriction({ enabled: false });
@@ -169,8 +197,9 @@ Page({
         wx.showToast({ title: restriction.message, icon: 'none' });
         return;
       }
-      const cart = cartService.addDish(currentDish, selectedOptions, quantity, { dishes });
-      this.setData({ foodOptionVisible: false });
+      const cart = cartService.addDish(currentDish, selectedOptions, quantity);
+      this.setData({ [sheetKey]: false });
+      try { if (typeof wx.vibrateShort === 'function') wx.vibrateShort({ type: 'light' }); } catch (_) { /* 可选反馈 */ }
       wx.showToast({
         title: `已加入点菜单（共 ${cartService.getItemCount(cart)} 份）`,
         icon: 'success',
@@ -206,26 +235,8 @@ Page({
     this.setData({ drinkOptionVisible: false });
   },
 
-  async addDetailDrinkToCart(dish, selectedOptions, quantity) {
-    try {
-      const { items: dishes } = await catalogService.listDishes({ allowLocalFallback: false });
-      const currentDish = dishes.find(item => item.id === dish.id);
-      const restriction = currentDish
-        ? getDishRestriction(currentDish)
-        : getDishRestriction({ enabled: false });
-      if (restriction) {
-        wx.showToast({ title: restriction.message, icon: 'none' });
-        return;
-      }
-      const cart = cartService.addDish(currentDish, selectedOptions, quantity, { dishes });
-      this.setData({ drinkOptionVisible: false });
-      wx.showToast({
-        title: `已加入点菜单（共 ${cartService.getItemCount(cart)} 份）`,
-        icon: 'success',
-      });
-    } catch (error) {
-      wx.showToast({ title: error.message || '加入点菜单失败', icon: 'none' });
-    }
+  addDetailDrinkToCart(dish, selectedOptions, quantity) {
+    this.addDetailDishToCart(dish, selectedOptions, quantity, 'drinkOptionVisible');
   },
 
   onDrinkOptionsConfirm(event) {
@@ -245,8 +256,9 @@ Page({
     if (!order) return;
 
     const { items: dishes } = await catalogService.listDishes();
+    const dishById = new Map(dishes.map(dish => [dish.id, dish]));
     const cartItems = order.items.map(item => {
-      const dish = dishes.find(d => d.id === item.dishId);
+      const dish = dishById.get(item.dishId);
       return { 
         ...item, 
         image: dish ? dish.cover : (item.cover || ''),

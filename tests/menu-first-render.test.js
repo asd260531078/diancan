@@ -43,7 +43,13 @@ function createMenu(options = {}) {
           if (options.failOnce && categoryRequests === 1) throw new Error('offline');
           return { items: await (options.categories || categories) };
         },
+        async loadCatalog() {
+          const dishResult = await this.listDishes();
+          const categoryResult = await this.listCategories();
+          return { dishes: dishResult.items, categories: categoryResult.items };
+        },
       };
+      if (name === '../../services/orders') return { peekFrequentDishIds: () => [], getFrequentDishIds: async () => [] };
       if (name === '../../services/cart') return { loadCart: () => [], getItemCount: () => 0, getTotalAmount: () => 0 };
       return require(path.join(root, 'pages/menu', name));
     },
@@ -76,11 +82,12 @@ function assertReady(harness, expectedCount) {
   const active = menu.data.categoryPanels.find(panel => panel.categoryId === menu.data.activeCategoryId);
   assert.ok(active && active.visited, 'default panel must be mounted without a category tap');
   assert.strictEqual(menu.data.menuReady, true);
-  assert.strictEqual(active.dishes.length, expectedCount);
+  assert.strictEqual(active.total, expectedCount);
+  assert.strictEqual(active.dishes.length, Math.min(expectedCount, 20), 'only the first page is rendered');
   const initialization = patches.filter(patch => patch.categoryPanels);
   assert.ok(initialization.length > 0);
   initialization.forEach(patch => {
-    assert.ok(patch.categories && patch.dishes && patch.menuReady);
+    assert.ok(patch.categories && 'dishCount' in patch && patch.menuReady);
     assert.ok(patch.categoryPanels.some(panel => panel.visited && panel.categoryId === patch.activeCategoryId),
       'categories, dishes, panels, default selection and readiness must be committed together');
   });
@@ -145,7 +152,7 @@ async function run() {
   empty.menu.onLoad({ view: 'menu' });
   await empty.menu.onShow();
   assertReady(empty, 0);
-  assert.strictEqual(empty.menu.data.categoryPanels[0].visibleCount, 0, 'empty catalog still mounts its empty-state panel');
+  assert.strictEqual(empty.menu.data.categoryPanels[0].total, 0, 'empty catalog still mounts its empty-state panel');
 
   const retry = createMenu({ failOnce: true });
   retry.menu.onLoad({ view: 'menu' });

@@ -1,6 +1,8 @@
+const app = getApp();
 const orderService = require('../../services/orders');
 const imageCache = require('../../services/imageCache');
 const chefOrderReminder = require('../../services/chef-order-reminder');
+const notifySubscription = require('../../services/order-notify-subscription');
 const { normalizeOrder } = require('../utils/order-presentation');
 
 const MANAGE_ACTIONS = {
@@ -51,26 +53,41 @@ Page({
     imageCache.handleImageError(this, event.currentTarget.dataset.cover, undefined, event.currentTarget.dataset.src);
   },
 
+  renderOrder(rawOrder) {
+    const order = normalizeOrder(rawOrder);
+    imageCache.setImageData(this, {
+      order,
+      loading: false,
+      errorMessage: '',
+      manageActions: this.data.isManage ? (MANAGE_ACTIONS[order.status] || []) : [],
+    });
+  },
+
   async loadOrder() {
     if (!this.data.orderId) {
       this.setData({ loading: false, errorMessage: '订单 ID 无效' });
       return;
     }
-    this.setData({ loading: true, errorMessage: '' });
+    // 刚提交的订单由确认页直接带过来，首次进入不必再等一次云端读取。
+    const recent = app.globalData.recentOrder;
+    if (recent && recent.id === this.data.orderId && !this.data.order) {
+      app.globalData.recentOrder = null;
+      this.renderOrder(recent);
+      return;
+    }
+    // 已有内容时后台静默刷新，不再整页闪成“加载中”。
+    if (!this.data.order) this.setData({ loading: true, errorMessage: '' });
     try {
       const result = this.data.isManage
         ? await orderService.getManageOrderDetail(this.data.orderId)
         : await orderService.getMyOrderDetail(this.data.orderId);
-      const order = normalizeOrder(result.order);
-      imageCache.setImageData(this, {
-        order,
-        manageActions: this.data.isManage ? (MANAGE_ACTIONS[order.status] || []) : [],
-      });
+      this.renderOrder(result.order);
     } catch (error) {
       console.error('读取订单详情失败', error);
-      this.setData({ errorMessage: error.message || '订单详情读取失败' });
+      if (!this.data.order) this.setData({ errorMessage: error.message || '订单详情读取失败' });
+      else wx.showToast({ title: error.message || '刷新失败', icon: 'none' });
     } finally {
-      this.setData({ loading: false });
+      if (this.data.loading) this.setData({ loading: false });
     }
   },
 
@@ -82,9 +99,10 @@ Page({
         if (!result.confirm) return;
         this.setData({ operating: true });
         try {
-          await orderService.cancelMyOrder(this.data.orderId);
+          const cancelled = await orderService.cancelMyOrder(this.data.orderId);
           wx.showToast({ title: '订单已取消', icon: 'success' });
-          await this.loadOrder();
+          if (cancelled && cancelled.order) this.renderOrder(cancelled.order);
+          else await this.loadOrder();
         } catch (error) {
           wx.showToast({ title: error.message || '取消失败', icon: 'none' });
         } finally {
@@ -103,15 +121,19 @@ Page({
       content: `确定要将订单更新为“${label}”吗？`,
       success: async result => {
         if (!result.confirm) return;
+        // 顺手续一次“新订单提醒”订阅（勾选“总是保持”后不会弹窗）。
+        if (this.data.isManage) notifySubscription.requestNewOrderSubscription();
         this.setData({ operating: true });
         try {
           const previousStatus = this.data.order && this.data.order.status;
-          await orderService.updateOrderStatus(this.data.orderId, status);
+          const updated = await orderService.updateOrderStatus(this.data.orderId, status);
           if (previousStatus === 'pending' && status !== 'pending') {
             chefOrderReminder.removePendingOrder(this.data.orderId);
           }
           wx.showToast({ title: '状态已更新', icon: 'success' });
-          await this.loadOrder();
+          // 云端已返回最新订单，直接显示，省一次读取。
+          if (updated && updated.order) this.renderOrder(updated.order);
+          else await this.loadOrder();
         } catch (error) {
           wx.showToast({ title: error.message || '状态更新失败', icon: 'none' });
         } finally {

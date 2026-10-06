@@ -49,7 +49,7 @@ assert.ok(detailWxml.includes("bindconfirm='onFoodOptionsConfirm'"));
 assert.ok(menuJs.includes('openFoodOptions(dish)'));
 assert.ok(menuJs.includes('cartService.addDish'));
 assert.ok(detailJs.includes('openFoodOptionsFromDetail'));
-assert.ok(detailJs.includes('catalogService.listDishes({ allowLocalFallback: false })'));
+assert.ok(detailJs.includes('catalogService.peekDish(dish.id) || dish'), 'detail add re-checks the latest known status without refetching the menu');
 assert.ok(!menuJs.includes("wx.setStorageSync('cart'"));
 assert.ok(!detailJs.includes("wx.setStorageSync('cart'"));
 assert.ok(serverSchema.includes("availableTastePreferences: type === 'food'"));

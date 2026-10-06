@@ -60,7 +60,20 @@ function safeDocumentId(prefix, preferredId) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// 同一个云函数实例内短暂缓存管理员判断，避免每次请求都查 2~4 次集合。
+// 写操作仍会重新校验（缓存只有 30 秒，且仅缓存“是/否”）。
+const ADMIN_CACHE_TTL_MS = 30 * 1000;
+const adminCache = new Map();
+
 async function findAdmin(openid) {
+  const cached = adminCache.get(openid);
+  if (cached && Date.now() - cached.at < ADMIN_CACHE_TTL_MS) return cached.admin;
+  const admin = await lookupAdmin(openid);
+  adminCache.set(openid, { admin, at: Date.now() });
+  return admin;
+}
+
+async function lookupAdmin(openid) {
   const collections = ['admins', 'admin'];
   for (const collectionName of collections) {
     try {
@@ -89,12 +102,15 @@ async function assertAdmin(openid) {
   return admin;
 }
 
-async function fetchAll(collectionName) {
-  const pageSize = 100;
+async function fetchAll(collectionName, projection) {
+  // 服务端 SDK 单次最多 1000 条；菜多时比 100 条一页少 9 成往返。
+  const pageSize = 1000;
   const items = [];
   let offset = 0;
   while (true) {
-    const result = await db.collection(collectionName).skip(offset).limit(pageSize).get();
+    let query = db.collection(collectionName);
+    if (projection) query = query.field(projection);
+    const result = await query.skip(offset).limit(pageSize).get();
     items.push(...result.data);
     if (result.data.length < pageSize) break;
     offset += pageSize;
@@ -152,7 +168,7 @@ function sanitizeImageReferencesForWrite(raw = {}) {
   return { ...raw, cover, image: cover, images, steps };
 }
 
-async function getSession(openid) {
+async function touchUser(openid) {
   const now = db.serverDate();
   try {
     const result = await db.collection('users').doc(openid).update({ data: { lastSeenAt: now, updatedAt: now } });
@@ -171,14 +187,141 @@ async function getSession(openid) {
       },
     });
   }
-  const admin = await findAdmin(openid);
+}
+
+async function getSession(openid) {
+  // 用户记录写入和管理员查询并行，启动时少等一次数据库往返。
+  const [, admin] = await Promise.all([
+    touchUser(openid).catch(error => console.warn('更新用户访问时间失败', error && error.message)),
+    findAdmin(openid),
+  ]);
   return success({ openid, isAdmin: Boolean(admin), role: admin ? (admin.role || 'admin') : 'user' });
+}
+
+// ---- 菜单目录：摘要列表 + 版本号 ----
+// 列表只返回卡片、规格弹层、随机搭配需要的字段；做法/食材/图集只在详情接口返回。
+const DISH_DETAIL_FIELDS = ['ingredients', 'steps', 'legacyIngredients', 'legacySteps', 'tips', 'images',
+  'ingredientsText', 'stepsText'];
+const DISH_SUMMARY_PROJECTION = DISH_DETAIL_FIELDS.reduce((result, key) => ({ ...result, [key]: false }), {});
+const CATALOG_META_COLLECTION = 'meta';
+const CATALOG_META_ID = 'catalog';
+const CATALOG_WRITE_ACTIONS = new Set([
+  'createDish', 'updateDish', 'deleteDish', 'createCategory', 'updateCategory', 'deleteCategory',
+  'reorderCategories', 'seedDefaultCategories', 'seedMenuCatalog', 'importLegacyDishes', 'migrateDishesV2',
+]);
+let catalogPayloadCache = null;
+
+function summaryDish(dish) {
+  const summary = { ...dish };
+  DISH_DETAIL_FIELDS.forEach(key => { delete summary[key]; });
+  delete summary._openid;
+  return summary;
+}
+
+async function readCatalogVersion() {
+  try {
+    const result = await db.collection(CATALOG_META_COLLECTION).doc(CATALOG_META_ID).get();
+    return (result.data && result.data.version) || '';
+  } catch (error) {
+    return '';
+  }
+}
+
+async function bumpCatalogVersion() {
+  const version = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const write = () => db.collection(CATALOG_META_COLLECTION).doc(CATALOG_META_ID)
+    .set({ data: { version, updatedAt: db.serverDate() } });
+  catalogPayloadCache = null;
+  try {
+    await write();
+  } catch (error) {
+    try {
+      await db.createCollection(CATALOG_META_COLLECTION);
+      await write();
+    } catch (retryError) {
+      // 版本号只是缓存提示；写失败时客户端会一直走完整拉取，不影响正确性。
+      console.warn('更新菜单版本号失败', retryError && retryError.message);
+    }
+  }
+  return version;
+}
+
+async function buildPublicCatalog() {
+  const [rawDishes, rawCategories] = await Promise.all([
+    fetchAll('dishes', DISH_SUMMARY_PROJECTION),
+    fetchAll('categories'),
+  ]);
+  const categories = rawCategories.map(publicCategory);
+  const categoryById = {};
+  const categoryByName = {};
+  categories.forEach(category => {
+    categoryById[category.id] = category;
+    categoryByName[category.name] = category;
+  });
+  const dishes = rawDishes.map(publicDish).map(dish => ({
+    dish, category: categoryById[dish.categoryId] || categoryByName[dish.categoryName] || null,
+  }))
+    .filter(item => item.dish.enabled && (!item.category || item.category.enabled))
+    .sort(compareDishEntries)
+    .map(item => summaryDish(item.dish));
+  return {
+    dishes,
+    categories: categories.filter(item => item.enabled).sort(compareCategories),
+  };
+}
+
+async function getCatalog(event) {
+  const version = await readCatalogVersion();
+  const knownVersion = cleanString(event.knownVersion, 100);
+  if (version && knownVersion && knownVersion === version) {
+    return success({ version, notModified: true });
+  }
+  if (version && catalogPayloadCache && catalogPayloadCache.version === version) {
+    return success({ version, ...catalogPayloadCache.payload });
+  }
+  const payload = await buildPublicCatalog();
+  // 构建期间如果有人改了菜单，不缓存这份可能过期的数据。
+  if (version && version === await readCatalogVersion()) catalogPayloadCache = { version, payload };
+  return success({ version, ...payload });
+}
+
+async function getDishDetail(event, openid) {
+  const dishId = cleanString(event.dishId, 100);
+  if (!dishId) throw appError('INVALID_DISH', '缺少菜品 ID');
+  let raw = null;
+  try {
+    raw = (await db.collection('dishes').doc(dishId).get()).data || null;
+  } catch (error) {
+    raw = null;
+  }
+  if (!raw) return success({ item: null });
+  const dish = publicDish(raw);
+  let category = null;
+  if (dish.categoryId) {
+    try {
+      category = publicCategory((await db.collection('categories').doc(dish.categoryId).get()).data);
+    } catch (error) {
+      category = null;
+    }
+  }
+  const visible = dish.enabled && (!category || category.enabled);
+  if (!visible) {
+    if (!event.includeDisabled) return success({ item: null });
+    await assertAdmin(openid);
+  }
+  delete dish._openid;
+  return success({ item: dish });
 }
 
 async function listDishes(event, openid) {
   const includeDisabled = Boolean(event.includeDisabled);
   if (includeDisabled) await assertAdmin(openid);
-  const [rawDishes, rawCategories] = await Promise.all([fetchAll('dishes'), fetchAll('categories')]);
+  // summary=true 时不读取做法/食材等大字段；旧版客户端不传该参数，仍拿到完整数据。
+  const summaryOnly = event.summary === true;
+  const [rawDishes, rawCategories] = await Promise.all([
+    fetchAll('dishes', summaryOnly ? DISH_SUMMARY_PROJECTION : undefined),
+    fetchAll('categories'),
+  ]);
   const categories = rawCategories.map(publicCategory);
   const categoryById = {};
   const categoryByName = {};
@@ -193,15 +336,23 @@ async function listDishes(event, openid) {
   if (!includeDisabled) {
     items = items.filter(item => item.dish.enabled && (!item.category || item.category.enabled));
   }
-  items = items.sort((left, right) => {
-    const categorySortA = left.category ? left.category.sort : 999999;
-    const categorySortB = right.category ? right.category.sort : 999999;
-    return (categorySortA - categorySortB)
-      || (left.dish.sort - right.dish.sort)
-      || (dateSortValue(left.dish.createdAt) - dateSortValue(right.dish.createdAt))
-      || String(left.dish.id || left.dish.name).localeCompare(String(right.dish.id || right.dish.name), 'zh-CN');
-  }).map(item => item.dish);
+  items = items.sort(compareDishEntries).map(item => (summaryOnly ? summaryDish(item.dish) : item.dish));
   return success({ items });
+}
+
+function compareDishEntries(left, right) {
+  const categorySortA = left.category ? left.category.sort : 999999;
+  const categorySortB = right.category ? right.category.sort : 999999;
+  return (categorySortA - categorySortB)
+    || (left.dish.sort - right.dish.sort)
+    || (dateSortValue(left.dish.createdAt) - dateSortValue(right.dish.createdAt))
+    || String(left.dish.id || left.dish.name).localeCompare(String(right.dish.id || right.dish.name), 'zh-CN');
+}
+
+function compareCategories(a, b) {
+  return (a.sort - b.sort)
+    || (dateSortValue(a.createdAt) - dateSortValue(b.createdAt))
+    || String(a.name).localeCompare(String(b.name), 'zh-CN');
 }
 
 async function listCategories(event, openid) {
@@ -209,9 +360,7 @@ async function listCategories(event, openid) {
   if (includeDisabled) await assertAdmin(openid);
   let items = (await fetchAll('categories')).map(publicCategory);
   if (!includeDisabled) items = items.filter(item => item.enabled);
-  items = items.sort((a, b) => (a.sort - b.sort)
-      || (dateSortValue(a.createdAt) - dateSortValue(b.createdAt))
-      || String(a.name).localeCompare(String(b.name), 'zh-CN'));
+  items = items.sort(compareCategories);
   return success({ items });
 }
 
@@ -264,14 +413,6 @@ async function createDish(event, openid) {
   const category = await getCategory(input.categoryId);
   const dish = dishForWrite(input, category);
   assertCategoryAcceptsDish(category, dish.type);
-  console.log('CREATE DISH V2 OPTIONS:', {
-    type: dish.type,
-    availableCupSizes: dish.availableCupSizes,
-    availableSugarLevels: dish.availableSugarLevels,
-    availableTemperatures: dish.availableTemperatures,
-    availableSweetenerTypes: dish.availableSweetenerTypes,
-    availableToppings: dish.availableToppings,
-  });
   const id = safeDocumentId('dish', input.id);
   const now = db.serverDate();
   await db.collection('dishes').doc(id).set({
@@ -309,15 +450,6 @@ async function updateDish(event, openid) {
   const category = await getCategory(merged.categoryId);
   const dish = dishForWrite(merged, category);
   assertCategoryAcceptsDish(category, dish.type);
-  console.log('UPDATE DISH V2 OPTIONS:', {
-    dishId,
-    type: dish.type,
-    availableCupSizes: dish.availableCupSizes,
-    availableSugarLevels: dish.availableSugarLevels,
-    availableTemperatures: dish.availableTemperatures,
-    availableSweetenerTypes: dish.availableSweetenerTypes,
-    availableToppings: dish.availableToppings,
-  });
 
   const updateData = { ...dish, schemaVersion: 2, updatedAt: db.serverDate(), updatedBy: openid };
   if (!touchesCover) {
@@ -811,6 +943,19 @@ async function listMyOrders(event, openid) {
   return queryOrders(db.collection('orders').where({ userOpenId: openid }), event);
 }
 
+// 角标只需要“未完成订单”的数量和 ID；直接按状态查，不再翻遍全部历史订单。
+const OPEN_ORDER_STATUSES = ['pending', 'confirmed', 'preparing'];
+async function getMyOpenOrderSummary(event, openid) {
+  const _ = db.command;
+  const result = await db.collection('orders')
+    .where({ userOpenId: openid, status: _.in(OPEN_ORDER_STATUSES) })
+    .field({ _id: true, id: true, orderNo: true })
+    .limit(100)
+    .get();
+  const orderIds = [...new Set(result.data.map(item => String(item.id || item._id || item.orderNo)).filter(Boolean))];
+  return success({ count: orderIds.length, orderIds });
+}
+
 async function getMyOrderDetail(event, openid) {
   const order = await getOrderDocument(event.orderId);
   assertOrderOwner(order, openid, '无权查看此订单');
@@ -991,6 +1136,8 @@ const handlers = {
   getSession: (event, openid) => getSession(openid),
   listDishes,
   listCategories,
+  getCatalog,
+  getDishDetail,
   createDish,
   updateDish,
   deleteDish,
@@ -1004,6 +1151,7 @@ const handlers = {
   migrateDishesV2,
   createOrder,
   listMyOrders,
+  getMyOpenOrderSummary,
   getMyOrderDetail,
   cancelMyOrder,
   listManageOrders,
@@ -1024,7 +1172,19 @@ exports.main = async event => {
     if (!openid) throw appError('UNAUTHENTICATED', '无法识别当前微信用户');
     const handler = handlers[event && event.action];
     if (!handler) throw appError('UNKNOWN_ACTION', '未知操作');
-    return await handler(event || {}, openid);
+    const isCatalogWrite = CATALOG_WRITE_ACTIONS.has(event.action)
+      && !(event.action === 'migrateDishesV2' && event.dryRun !== false); // dryRun 不改数据
+    let result;
+    try {
+      result = await handler(event || {}, openid);
+    } catch (error) {
+      // 权限/校验错误发生在写入之前，不更新版本号（避免非管理员反复触发全员重拉）；
+      // 意外错误可能已写入一部分，更新版本号让客户端重新拉菜单。
+      if (isCatalogWrite && error.isAppError !== true) await bumpCatalogVersion();
+      throw error;
+    }
+    if (isCatalogWrite) await bumpCatalogVersion();
+    return result;
   } catch (error) {
     console.error('familyApi failed', { action: event && event.action, code: error.code, message: error.message });
     return {

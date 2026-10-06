@@ -204,3 +204,7 @@
   color: #8f8983;
   font-size: 25rpx;
 }
+
+.recipe-state { color: var(--color-text-secondary); font-size: 26rpx; text-align: center; }
+.recipe-state-mark { display: inline-block; width: 20rpx; height: 20rpx; margin-right: 12rpx; border: 3rpx solid var(--color-border); border-top-color: var(--color-brand); border-radius: 50%; vertical-align: -2rpx; animation: recipe-spin 800ms linear infinite; }
+@keyframes recipe-spin { to { transform: rotate(360deg); } }

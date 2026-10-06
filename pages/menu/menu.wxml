@@ -17,7 +17,7 @@
       <view class='dish-footer'>
         <text wx:if='{{item.price !== null && item.price !== undefined}}' class='price'>¥{{item.price}}</text>
         <text wx:else class='price-unset'>未标价</text>
-        <button class='add-btn {{item.canAddToCart ? "" : "add-btn-disabled"}}' disabled='{{!item.canAddToCart}}' catchtap='addToCart' data-dish='{{item}}' hover-class='ui-press' aria-label='加入{{item.name}}'>+</button>
+        <button class='add-btn {{item.canAddToCart ? "" : "add-btn-disabled"}}' disabled='{{!item.canAddToCart}}' catchtap='addToCart' data-dishid='{{item.id}}' hover-class='ui-press' aria-label='加入{{item.name}}'>+</button>
       </view>
     </view>
   </view>
@@ -43,8 +43,8 @@
         <view class='brand-decoration'><home-decoration id='home-decoration' /></view>
       </view>
 
-      <view wx:if='{{catalogLoading && dishes.length === 0}}' class='ui-loading'><text class='ui-loading-mark' />正在准备菜单…</view>
-      <view wx:elif='{{catalogError && dishes.length === 0}}' class='ui-empty'>
+      <view wx:if='{{catalogLoading && dishCount === 0}}' class='ui-loading'><text class='ui-loading-mark' />正在准备菜单…</view>
+      <view wx:elif='{{catalogError && dishCount === 0}}' class='ui-empty'>
         <text class='ui-empty-title'>菜单暂时没有加载出来</text>
         <view class='ui-button ui-button-secondary' bindtap='retryCatalog'>再试一次</view>
       </view>
@@ -72,6 +72,19 @@
         </scroll-view>
       </view>
 
+      <view wx:if='{{popularDishes.length > 0}}' class='featured-section popular-section'>
+        <view class='section-heading'><text class='section-title'>最近常点</text><text class='section-caption'>你点得最多的几道</text></view>
+        <scroll-view class='popular-list' scroll-x enable-flex='{{true}}' show-scrollbar='{{false}}'>
+          <view class='popular-track'>
+            <view wx:for='{{popularDishes}}' wx:key='_id' class='popular-chip' bindtap='goDetail' data-dishid='{{item.id}}' hover-class='ui-press'>
+              <image class='popular-chip-image' src='{{item.displayCover}}' mode='aspectFill' lazy-load binderror='onDishImageError' data-dishid='{{item.id}}' data-cover='{{item.cover || item.legacyCover || item.image}}' data-src='{{item.displayCover}}' bindload='onDishImageLoad' />
+              <text class='popular-chip-name'>{{item.name}}</text>
+              <view class='popular-chip-add {{item.canAddToCart ? "" : "add-btn-disabled"}}' catchtap='addToCart' data-dishid='{{item.id}}' hover-class='ui-press'>+</view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
       <view class='shortcut-grid'>
         <view class='shortcut' bindtap='goMealRandom' hover-class='ui-press'>
           <image class='shortcut-art' src='/images/home-shortcuts/choice.png' mode='aspectFit' /><text class='shortcut-title'>今天想吃什么</text><text class='shortcut-note'>把选择交给灵感</text>
@@ -88,7 +101,7 @@
       <view class='preview-list'>
         <block wx:for='{{previewDishes}}' wx:key='_id'><template is='dishCard' data='{{item: item}}' /></block>
       </view>
-      <view wx:if='{{!catalogLoading && !catalogError && dishes.length === 0}}' class='ui-empty'>
+      <view wx:if='{{!catalogLoading && !catalogError && dishCount === 0}}' class='ui-empty'>
         <text class='ui-empty-title'>菜单正在慢慢添新</text><text>好吃的值得等一等。</text>
       </view>
       <text class='home-footnote'>一餐一饭，都是心意。</text>
@@ -114,22 +127,35 @@
           <view class='scroll-bottom-space' />
         </view>
       </scroll-view>
-      <scroll-view class='menu-list-scroll' scroll-y>
+      <scroll-view class='menu-list-scroll' scroll-y scroll-into-view='{{menuScrollAnchor}}' bindscrolltolower='onMenuReachBottom' lower-threshold='600'>
         <view class='dish-list' wx:if='{{!menuReady}}'>
           <view wx:if='{{catalogLoading}}' class='ui-loading'><text class='ui-loading-mark' />菜单准备中…</view>
           <view wx:elif='{{catalogError}}' class='ui-empty'><text class='ui-empty-title'>菜单加载失败</text><view class='ui-button ui-button-secondary' bindtap='retryCatalog'>再试一次</view></view>
         </view>
-        <block wx:for='{{categoryPanels}}' wx:for-item='panel' wx:key='categoryId'>
-          <!-- visited only changes false -> true; category switching never unmounts a visited panel. -->
-          <view wx:if='{{panel.visited}}' hidden='{{activeCategoryId !== panel.categoryId}}' class='dish-list'>
-            <view class='menu-list-heading'><text>{{panel.name}}</text><text class='menu-list-count'>{{panel.visibleCount}} 道</text></view>
-            <view wx:for='{{panel.dishes}}' wx:key='_id' hidden='{{item.searchHidden}}'>
-              <template is='dishCard' data='{{item: item}}' />
-            </view>
-            <view wx:if='{{panel.visibleCount === 0}}' class='ui-empty'><text>{{searchKey ? "没有找到这道菜，换个名字试试" : "这个分类今天还没有菜哦"}}</text></view>
-          <view class='scroll-bottom-space' />
+        <!-- 搜索结果单独渲染，不改动已挂载的分类面板。 -->
+        <view wx:if='{{searchActive}}' id='menu-search-top' class='dish-list'>
+          <view class='menu-list-heading'><text>搜索结果</text><text class='menu-list-count'>{{searchCount}} 道</text></view>
+          <view wx:for='{{searchResults}}' wx:key='_id'>
+            <template is='dishCard' data='{{item: item}}' />
           </view>
-        </block>
+          <view wx:if='{{searchCount === 0}}' class='ui-empty'><text>没有找到这道菜，换个名字试试</text></view>
+          <view wx:if='{{searchHasMore}}' class='list-more'>继续下滑查看更多</view>
+          <view class='scroll-bottom-space' />
+        </view>
+        <view hidden='{{searchActive}}'>
+          <block wx:for='{{categoryPanels}}' wx:for-item='panel' wx:for-index='panelIndex' wx:key='categoryId'>
+            <!-- visited only changes false -> true; category switching never unmounts a visited panel. -->
+            <view wx:if='{{panel.visited}}' hidden='{{activeCategoryId !== panel.categoryId}}' id='menu-panel-{{panelIndex}}' class='dish-list'>
+              <view class='menu-list-heading'><text>{{panel.name}}</text><text class='menu-list-count'>{{panel.total}} 道</text></view>
+              <view wx:for='{{panel.dishes}}' wx:key='_id'>
+                <template is='dishCard' data='{{item: item}}' />
+              </view>
+              <view wx:if='{{panel.total === 0}}' class='ui-empty'><text>这个分类今天还没有菜哦</text></view>
+              <view wx:if='{{panel.hasMore}}' class='list-more'>继续下滑查看更多</view>
+              <view class='scroll-bottom-space' />
+            </view>
+          </block>
+        </view>
       </scroll-view>
     </view>
   </view>
@@ -140,7 +166,7 @@
       <image class='cart-summary-wood' src='/images/cart-wood-panel.png' mode='aspectFill' />
       <view class='cart-info'>
         <text class='cart-icon'>点菜单</text>
-        <text class='cart-badge'>{{cartCount}}</text>
+        <text class='cart-badge {{cartBump ? "cart-badge-bump" : ""}}'>{{cartCount}}</text>
       </view>
       <text class='cart-total'>¥{{totalAmountText}}</text>
     </view>

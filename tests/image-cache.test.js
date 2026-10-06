@@ -411,8 +411,13 @@ async function run() {
         getCachedCatalog: () => ({ dishes: [], categories: [] }),
         async listDishes() { menuRequests += 1; return { items: menuDishes }; },
         async listCategories() { return { items: [{ id: 'main', name: '自定义分类', icon: 'cloud://env/category.png' }] }; },
+        async loadCatalog() {
+          menuRequests += 1;
+          return { dishes: menuDishes, categories: [{ id: 'main', name: '自定义分类', icon: 'cloud://env/category.png' }] };
+        },
         getCatalogRevision: () => 0,
       };
+      if (name === '../../services/orders') return { peekFrequentDishIds: () => [], getFrequentDishIds: async () => [] };
       if (name === '../../services/cart') return { loadCart: () => [], getItemCount: () => 0, getTotalAmount: () => 0 };
       return require(path.join(__dirname, '../pages/menu', name));
     },
@@ -430,10 +435,10 @@ async function run() {
   await menuCache.queueCaches(menuDishes.slice(0, 8).map(dish => dish.cover));
   assert.strictEqual(menuState.downloads.length, 8, 'do not enqueue all 40 dishes, categories or full/step images');
   assert.strictEqual(menu.patches.length, renderedPatches, 'menu src stays unchanged after background completion');
-  const sameDishes = menu.data.dishes;
+  const sameDishes = menu._dishes;
   await menu.onShow();
   assert.strictEqual(menuRequests, 1);
-  assert.strictEqual(menu.data.dishes, sameDishes);
+  assert.strictEqual(menu._dishes, sameDishes);
   assert.strictEqual(menu.activeDishes()[0].displayCover, menuDishes[0].cover);
   await menu.onShow();
   assert.strictEqual(menu.activeDishes()[0].displayCover, menuDishes[0].cover, 'resident menu nodes keep cloud src for this page lifetime');
@@ -488,8 +493,10 @@ async function run() {
         getCachedCatalog: () => ({ dishes: coldSnapshot, categories: [{ id: 'main', name: '自定义分类' }] }),
         listDishes: async () => ({ items: coldSnapshot }),
         listCategories: async () => ({ items: [{ id: 'main', name: '自定义分类' }] }),
+        loadCatalog: async () => ({ dishes: coldSnapshot, categories: [{ id: 'main', name: '自定义分类' }] }),
         getCatalogRevision: () => 0,
       };
+      if (name === '../../services/orders') return { peekFrequentDishIds: () => [], getFrequentDishIds: async () => [] };
       if (name === '../../services/cart') return { loadCart: () => [], getItemCount: () => 0, getTotalAmount: () => 0 };
       return require(path.join(__dirname, '../pages/menu', name));
     },
@@ -531,13 +538,15 @@ async function run() {
   menu.onCategoryChange({ currentTarget: { dataset: { categoryid: 'main' } } });
   assert.strictEqual(menu.data.categoryPanels, residentPanels);
   assert.strictEqual(menu._dishViewCache, originalViews);
-  assert.strictEqual(menu.activeDishes()[0].displayCover, menuDishes[0].cover);
+  assert.ok(menuState.files.has(menu.activeDishes()[0].displayCover), 'a first-visited panel mounts with the saved local file');
+  assert.strictEqual(menu.data.categoryPanels[0].dishes[0].displayCover, menuDishes[0].cover, 'resident nodes keep their src');
   assert.strictEqual(menuRequests, 1, 'category switches do not fetch dishes');
   assert.strictEqual(menuState.downloads.length, 9, 'category switches do not enqueue/download covers');
   menu.onUnload();
   menuCache.releaseView(menu);
   // A new page instance may choose validated saved files, unlike a resident node.
-  menu.data = { ...menu.data, dishes: [], categoryPanels: [], featuredDishes: [], previewDishes: [] };
+  menu.data = { ...menu.data, categoryPanels: [], featuredDishes: [], previewDishes: [] };
+  menu._dishes = [];
   menu._dishViewCache = null;
   menu._dishSourceSignatures = null;
   menu.applyCatalogView(menuDishes, [{ id: 'main', name: '自定义分类' }]);

@@ -71,8 +71,11 @@ function testPageContracts() {
   const js = fs.readFileSync(path.join(root, 'package-extra/detail/detail.js'), 'utf8');
   const wxml = fs.readFileSync(path.join(root, 'package-extra/detail/detail.wxml'), 'utf8');
   const catalog = fs.readFileSync(path.join(root, 'services/catalog.js'), 'utf8');
-  assert.ok(catalog.includes('async function getDish(dishId, options = {})'));
-  assert.ok(js.includes("catalogService.getDish(dishId, { allowLocalFallback: false })"));
+  assert.ok(catalog.includes('async function getDishDetail(dishId, options = {})'));
+  assert.ok(js.includes('catalogService.peekDish(dishId)'), 'detail paints the menu summary immediately');
+  assert.ok(js.includes('catalogService.getDishDetail(dishId)'), 'recipe is loaded for this single dish only');
+  assert.ok(!js.includes('catalogService.getDish('), 'detail must not download the whole menu for one dish');
+  assert.ok(wxml.includes('recipeLoading'), 'recipe area shows its own loading state');
   assert.ok(js.includes('includeDisabled: true'), 'admin preview must read disabled dishes securely');
   assert.ok(wxml.includes("binderror='onCoverError'"));
   assert.ok(wxml.includes("binderror='onStepImageError'"));

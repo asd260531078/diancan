@@ -147,7 +147,7 @@ Page({
       wx.showLoading({ title: '上传分类图片中' });
       loadingShown = true;
       // 复用现有管理员上传用途；原始 PNG 保留透明通道。
-      const uploaded = await imageService.uploadImage(filePath, 'dish-gallery');
+      const uploaded = await imageService.uploadImage(filePath, 'dish-gallery', { compress: false });
       if (!imageService.isCloudFileID(uploaded.fileID)) throw new Error('未取得云存储 fileID');
       imageCache.setImageData(this, { 'form.icon': uploaded.fileID, formIconImage: uploaded.fileID });
     } catch (error) {

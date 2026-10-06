@@ -47,7 +47,15 @@ Page({
   },
 
   async loadConfirmation() {
-    this.setData({ loading: true });
+    // 先用本地菜单立即显示点菜单，再用云端最新数据校验（通常命中内存，几乎无等待）。
+    const cached = catalogService.getCachedCatalog();
+    if (cached.dishes.length) {
+      this.latestDishes = cached.dishes;
+      this.applyCart(cartService.loadCart({ dishes: cached.dishes }), cached.dishes);
+      this.setData({ loading: false });
+    } else {
+      this.setData({ loading: true });
+    }
     try {
       const { items: dishes } = await catalogService.listDishes({ allowLocalFallback: false });
       this.latestDishes = dishes;
@@ -161,9 +169,9 @@ Page({
         now: Date.now(),
       });
       this.lastOrderDraft = draft;
-      console.log('ORDER DRAFT READY:', draft);
       const result = await orderService.createOrder(draft);
       const order = result.order;
+      app.globalData.recentOrder = order;
       cartService.clearCart();
       this.lastOrderDraft = null;
       app.globalData.pendingCartEdit = null;
@@ -180,10 +188,9 @@ Page({
           console.warn('订单已创建，但管理员订阅消息发送失败', error);
         });
       }
+      // Toast 是全局的，跳转后仍会显示，不必再等半秒。
       wx.showToast({ title: result.idempotent ? '订单已提交' : '点菜单已提交', icon: 'success' });
-      setTimeout(() => {
-        wx.redirectTo({ url: `/package-order/order-detail/order-detail?id=${encodeURIComponent(order.id)}` });
-      }, 500);
+      wx.redirectTo({ url: `/package-order/order-detail/order-detail?id=${encodeURIComponent(order.id)}` });
     } catch (error) {
       wx.showToast({ title: error.message || '点菜单提交失败', icon: 'none' });
     } finally {

@@ -33,6 +33,21 @@
       ]
     }
   ],
+  "preloadRule": {
+    "pages/menu/menu": {
+      "network": "all",
+      "packages": [
+        "package-extra",
+        "package-order"
+      ]
+    },
+    "pages/profile/profile": {
+      "network": "all",
+      "packages": [
+        "package-order"
+      ]
+    }
+  },
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#F6F0E6",
@@ -43,13 +58,16 @@
     "custom": true,
     "color": "#A89684",
     "selectedColor": "#6F472D",
-    "list": [{
-      "pagePath": "pages/menu/menu",
-      "text": "首页"
-    }, {
-      "pagePath": "pages/profile/profile",
-      "text": "我的"
-    }]
+    "list": [
+      {
+        "pagePath": "pages/menu/menu",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
+    ]
   },
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",

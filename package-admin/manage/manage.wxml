@@ -10,6 +10,7 @@
         <text>订单管理</text>
         <text wx:if="{{chefPendingBadge}}" class="orders-badge">{{chefPendingBadge}}</text>
       </view>
+      <view wx:if="{{notifyConfigured}}" class="notify-btn" bindtap="onEnableOrderNotify">开启新订单提醒</view>
       <view class="meal-set-btn" bindtap="onManageMealSets">套餐管理</view>
       <view wx:if="{{hasLegacyDishes}}" class="import-btn" bindtap="onImportLegacy">导入旧数据</view>
       <view class="category-btn" bindtap="onManageCategories">分类管理</view>
@@ -19,9 +20,14 @@
 
   <view wx:if="{{loading}}" class="empty"><text>正在连接云端数据...</text></view>
 
-  <view wx:else class="dish-list">
+  <view wx:if="{{!loading && (totalCount > 10 || searchKey)}}" class="manage-search">
+    <input class="manage-search-input" placeholder="搜索菜品名称" value="{{searchKey}}" bindinput="onSearchInput" confirm-type="search" />
+    <text class="manage-search-count">{{totalCount}} 道</text>
+  </view>
+
+  <view wx:if="{{!loading}}" class="dish-list">
     <view wx:for="{{dishes}}" wx:key="id" class="dish-card {{item.enabled ? '' : 'dish-disabled'}}">
-      <image class="dish-img" src="{{item.displayCover}}" mode="aspectFill" data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad" />
+      <image class="dish-img" src="{{item.displayCover}}" mode="aspectFill" lazy-load data-cover="{{item.cover || item.legacyCover || item.image}}" data-src="{{item.displayCover}}" binderror="onCachedImageError" bindload="onCachedImageLoad" />
       <view class="dish-info">
         <view class="dish-top">
           <view>
@@ -60,8 +66,10 @@
     </view>
   </view>
 
+  <view wx:if="{{hasMore}}" class="empty"><text>继续下滑查看更多</text></view>
+
   <view wx:if="{{!loading && dishes.length === 0}}" class="empty">
-    <text>还没有菜品，点击右上角「添加」开始</text>
+    <text>{{searchKey ? '没有找到这道菜' : '还没有菜品，点击右上角「添加」开始'}}</text>
   </view>
 </view>
 

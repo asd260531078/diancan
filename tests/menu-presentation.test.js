@@ -21,6 +21,6 @@ assert.ok(menuJs.includes("hot: '🌶🌶🌶 辣'"), 'menu must map hot spicy l
 assert.ok(menuJs.includes('.slice(0, 3)'), 'menu must limit custom tags to three');
 assert.ok(menuJs.includes("require('../../utils/dish-status')"), 'menu must use the shared dish status rules');
 assert.ok(menuJs.includes('getDishRestriction(dish)'), 'menu add action must recheck current dish status');
-assert.ok(menuJs.includes('this.data.dishes.find'), 'cart plus action must resolve the current menu dish');
+assert.ok(menuJs.includes('const dish = this.dishById(item.dishId);'), 'cart plus action must resolve the current menu dish');
 
 console.log('menu presentation tests passed');

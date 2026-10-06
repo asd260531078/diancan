@@ -62,7 +62,13 @@ vm.runInNewContext(source, {
       getCachedCatalog: () => ({ dishes: [], categories: [] }), getCatalogRevision: () => revision,
       async listDishes() { dishRequests += 1; return { items: dishes }; },
       async listCategories() { categoryRequests += 1; return { items: categories }; },
+      async loadCatalog() {
+        dishRequests += 1;
+        categoryRequests += 1;
+        return { dishes, categories };
+      },
     };
+    if (name === '../../services/orders') return { peekFrequentDishIds: () => [], getFrequentDishIds: async () => [] };
     if (name === '../../services/cart') return { loadCart: () => [], getItemCount: () => 0, getTotalAmount: () => 0 };
     return require(path.join(root, 'pages/menu', name));
   },
@@ -87,16 +93,45 @@ async function run() {
   assert.strictEqual(categoryRequests, 1);
   assert.deepStrictEqual(Array.from(menu.data.categoryPanels.filter(item => item.visited), item => item.categoryId), ['all']);
   assert.strictEqual(menu._dishViewCache.size, 60);
-  assert.strictEqual(menu._dishesByCategory.get('hot')[0], menu._dishViewCache.get('dish-0'));
-  assert.strictEqual(panel('hot').dishes[0]._id, dishes[0].id, 'legacy id gets a stable view-only _id alias');
-  assert.strictEqual(panel('hot').dishes[0].displayCover, savedCovers.get(dishes[0].cover));
-  assert.ok(!('steps' in panel('hot').dishes[0]), 'panels must not duplicate recipe payloads');
-  assert.ok(!('images' in panel('hot').dishes[0]), 'panels must not include detail galleries');
-  assert.ok(menu.data.dishes[0].steps.length, 'full dish data remains available for existing business lookups');
+  const cardsOf = id => menu._panelCards[menu._panelIndexByCategory.get(id)];
+  assert.strictEqual(cardsOf('hot')[0], menu._dishViewCache.get('dish-0'));
+  assert.strictEqual(cardsOf('hot')[0]._id, dishes[0].id, 'legacy id gets a stable view-only _id alias');
+  assert.strictEqual(cardsOf('hot')[0].displayCover, savedCovers.get(dishes[0].cover));
+  assert.ok(!('steps' in cardsOf('hot')[0]), 'panels must not duplicate recipe payloads');
+  assert.ok(!('images' in cardsOf('hot')[0]), 'panels must not include detail galleries');
+  assert.ok(menu.dishById('dish-0').steps.length, 'full dish data remains available for existing business lookups');
+  assert.ok(!('dishes' in menu.data), 'full dish objects never enter page data');
+  assert.strictEqual(panel('hot').dishes.length, 0, 'unvisited panels send no cards');
   assert.strictEqual(JSON.stringify(dishes), rawSnapshot, 'the source menu data is not mutated');
 
+  // 长列表分批渲染：首屏 20 道，滚到底部按路径追加，不重发整个数组。
+  assert.strictEqual(panel('all').dishes.length, 20);
+  assert.strictEqual(panel('all').total, 60);
+  assert.strictEqual(panel('all').hasMore, true);
+  let before = patches.length;
+  menu.onMenuReachBottom();
+  assert.ok(Object.keys(patches[before]).every(key => /^categoryPanels\[0\]\.(dishes\[\d+\]|hasMore)$/.test(key)),
+    'appending sends only the new cards');
+  assert.strictEqual(panel('all').dishes.length, 40);
+  menu.onMenuReachBottom();
+  assert.strictEqual(panel('all').dishes.length, 60);
+  assert.strictEqual(panel('all').hasMore, false);
+  before = patches.length;
+  menu.onMenuReachBottom();
+  assert.strictEqual(patches.length, before, 'nothing left to append');
+
+  // 第一次进入分类：挂载并发送第一页。
+  for (const id of ['hot', 'rice', 'soup']) {
+    const index = menu._panelIndexByCategory.get(id);
+    before = patches.length;
+    tap(id);
+    assert.deepStrictEqual(Object.keys(patches[before]).sort(), ['activeCategoryId', 'menuScrollAnchor',
+      `categoryPanels[${index}].visited`, `categoryPanels[${index}].dishes`, `categoryPanels[${index}].hasMore`].sort());
+    assert.strictEqual(panel(id).dishes.length, 20);
+  }
+
   const originalPanels = menu.data.categoryPanels;
-  const originalDishList = menu.data.dishes;
+  const originalDishList = menu._dishes;
   const originalCache = menu._dishViewCache;
   const originalHotCards = panel('hot').dishes;
   const originalRiceCards = panel('rice').dishes;
@@ -104,16 +139,15 @@ async function run() {
   const imageCallsBefore = { ...calls };
   // Background cache completion must not change a resident view's selected src.
   dishes.forEach(dish => savedCovers.set(dish.cover, `wxfile://usr/later-${dish.id}.png`));
-  const originalFilter = menu.filterDishes;
-  menu.filterDishes = () => { throw new Error('category tap must not filter/rebuild dishes'); };
+  const originalFilter = menu.applySearch;
+  menu.applySearch = () => { throw new Error('category tap must not filter/rebuild dishes'); };
   forbidImageCalls = true;
   for (const id of ['hot', 'rice', 'soup', 'hot', 'soup', 'rice', 'hot']) {
-    const wasVisited = panel(id).visited;
-    const before = patches.length;
+    before = patches.length;
     tap(id);
     assert.strictEqual(patches.length, before + 1);
-    assert.deepStrictEqual(Object.keys(patches[before]).sort(), wasVisited
-      ? ['activeCategoryId'] : ['activeCategoryId', `categoryPanels[${menu._panelIndexByCategory.get(id)}].visited`].sort());
+    assert.deepStrictEqual(Object.keys(patches[before]).sort(), ['activeCategoryId', 'menuScrollAnchor']);
+    assert.strictEqual(menu.data.menuScrollAnchor, `menu-panel-${menu._panelIndexByCategory.get(id)}`, 'switching scrolls the new panel to its top');
   }
   const beforeSameTap = patches.length;
   tap('hot');
@@ -121,12 +155,12 @@ async function run() {
   assert.strictEqual(patches.length, beforeSameTap, 'same/invalid category taps are no-ops');
   for (let index = 0; index < 50; index += 1) tap(['hot', 'rice', 'soup'][index % 3]);
   forbidImageCalls = false;
-  menu.filterDishes = originalFilter;
+  menu.applySearch = originalFilter;
   assert.deepStrictEqual(calls, imageCallsBefore, 'classification switching never resolves, queues, invalidates or refreshes images');
   assert.strictEqual(dishRequests, 1);
   assert.strictEqual(categoryRequests, 1);
   assert.strictEqual(menu.data.categoryPanels, originalPanels);
-  assert.strictEqual(menu.data.dishes, originalDishList);
+  assert.strictEqual(menu._dishes, originalDishList);
   assert.strictEqual(menu._dishViewCache, originalCache);
   assert.strictEqual(panel('hot').dishes, originalHotCards);
   assert.strictEqual(panel('rice').dishes, originalRiceCards);
@@ -141,15 +175,25 @@ async function run() {
   menu.onSearchInput({ detail: { value: '热炒0' } });
   assert.strictEqual(menu.activeDishes().length, 1);
   assert.ok(menu.activeDishes()[0].nameSegments.some(segment => segment.highlight));
+  assert.strictEqual(menu.data.searchActive, true);
   tap('rice');
-  assert.strictEqual(menu.activeDishes().length, 0, 'search applies to the newly selected category too');
+  menu.onSearchInput({ detail: { value: '汤' } });
+  assert.strictEqual(menu.activeDishes().length, 20, 'search covers every category, not just the selected one');
+  assert.strictEqual(menu.data.searchResults.length, 20);
+  tap('rice');
+  assert.strictEqual(menu.data.searchKey, '', 'tapping a category leaves search');
+  assert.strictEqual(menu.data.searchActive, false);
+  assert.strictEqual(menu.activeDishes().length, 20);
+  menu.onSearchInput({ detail: { value: '盖饭' } });
   menu.onSearchClear();
   assert.strictEqual(menu.activeDishes().length, 20);
   assert.strictEqual(panel('hot').dishes[0], originalHotCard);
   assert.strictEqual(panel('hot').dishes, originalHotCards);
-  assert.deepStrictEqual(calls, searchCalls, 'search updates visibility/text only, not cache or image sources');
+  ['resolve', 'queue', 'refresh', 'invalidate'].forEach(key => {
+    assert.strictEqual(calls[key], searchCalls[key], `search must not ${key} images`);
+  });
   patches.slice(beforeSearch).forEach(patch => {
-    assert.ok(Object.keys(patch).every(key => !/displayCover|^dishes$|^categoryPanels$/.test(key)));
+    assert.ok(Object.keys(patch).every(key => !/displayCover|^dishes$|^categoryPanels/.test(key)), 'search never touches resident panels');
   });
   now += 24 * 60 * 60 * 1000;
   await menu.onShow();
@@ -166,7 +210,7 @@ async function run() {
   await menu.onShow();
   assert.strictEqual(dishRequests, 3, 'a catalog write revision is a valid reload trigger');
   assert.strictEqual(panel('rice').dishes[0].displayCover, dishes[1].cover, 'updated cover replaces the old image');
-  assert.strictEqual(menu.data.dishes[1].price, 8, 'existing data-update behavior is preserved');
+  assert.strictEqual(menu.dishById(dishes[1].id).price, 8, 'existing data-update behavior is preserved');
   assert.ok(panel('hot').visited && panel('rice').visited && panel('soup').visited);
   tap('soup');
   categories.pop();
@@ -177,7 +221,9 @@ async function run() {
 
   assert.ok(wxml.includes("wx:if='{{panel.visited}}'"));
   assert.ok(wxml.includes("hidden='{{activeCategoryId !== panel.categoryId}}'"));
-  assert.ok(wxml.includes("wx:for='{{panel.dishes}}' wx:key='_id' hidden='{{item.searchHidden}}'"));
+  assert.ok(wxml.includes("wx:for='{{panel.dishes}}' wx:key='_id'>"));
+  assert.ok(wxml.includes("bindscrolltolower='onMenuReachBottom'"));
+  assert.ok(wxml.includes("scroll-into-view='{{menuScrollAnchor}}'"));
   assert.ok(!/wx:(?:if|elif)=['"][^'"]*activeCategoryId/.test(wxml), 'active selection may only hide, not unmount a panel');
   assert.ok(!wxml.includes('filteredDishes'));
   console.log('menu category residency passed: stable panels/keys/objects/src, no tap requests/cache work, first-visit mounting, search and revision refresh');

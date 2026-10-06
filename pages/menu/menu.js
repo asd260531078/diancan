@@ -3,6 +3,7 @@ const app = getApp();
 const catalogService = require('../../services/catalog');
 const imageCache = require('../../services/imageCache');
 const cartService = require('../../services/cart');
+const orderService = require('../../services/orders');
 const { dishStatusView, getDishRestriction } = require('../../utils/dish-status');
 const { hasDrinkOptions, hasFoodOptions } = require('../../utils/cart');
 const { formatMoney } = require('../../utils/money');
@@ -22,6 +23,16 @@ const CATEGORY_ICON_GLYPHS = {
 };
 const EAGER_MENU_IMAGE_COUNT = 8;
 const ALL_CATEGORY_ID = 'all';
+// 长列表分批渲染：每个分类先渲染一屏多一点，滚到底部再追加，菜再多首屏也一样快。
+const PANEL_PAGE_SIZE = 20;
+const SEARCH_PAGE_SIZE = 30;
+const SEARCH_DEBOUNCE_MS = 120;
+const POPULAR_DISH_COUNT = 6;
+const PLAIN_SEGMENTS_KEY = 'full';
+
+function clearTimer(timer) {
+  if (timer && typeof clearTimeout === 'function') clearTimeout(timer);
+}
 
 function categoryIdValue(value) {
   return value === undefined || value === null ? '' : String(value);
@@ -38,6 +49,21 @@ function categoryIconText(icon) {
   return CATEGORY_ICON_GLYPHS[value.toLowerCase()] || (Array.from(value).length <= 2 ? value : '');
 }
 
+function plainSegments(name) {
+  return [{ key: PLAIN_SEGMENTS_KEY, text: name, highlight: false }];
+}
+
+function highlightSegments(name, key) {
+  const text = String(name || '');
+  const index = key ? text.toLowerCase().indexOf(key) : -1;
+  if (index === -1) return plainSegments(text);
+  const segments = [];
+  if (index > 0) segments.push({ key: 'before', text: text.slice(0, index), highlight: false });
+  segments.push({ key: 'match', text: text.slice(index, index + key.length), highlight: true });
+  if (index + key.length < text.length) segments.push({ key: 'after', text: text.slice(index + key.length), highlight: false });
+  return segments;
+}
+
 function decorateDish(dish, cachedCover) {
   const tags = Array.isArray(dish.tags) ? dish.tags : [];
   const status = dishStatusView(dish);
@@ -52,21 +78,29 @@ function decorateDish(dish, cachedCover) {
     displayCover: cachedCover === undefined
       ? imageCache.getDisplayImage(safeDetailImage(dish.cover || dish.image, '菜单图片', dish.id) || DEFAULT_COVER)
       : cachedCover,
-    nameSegments: [{ key: 'full', text: dish.name, highlight: false }],
+    nameSegments: plainSegments(dish.name),
   };
 }
 
 function cardView(dish) {
-  // Panels repeat only small UI fields, not recipes/steps/detail images. Cart and
-  // options still look up the original full dish in data.dishes by id.
+  // Cards carry only small UI fields; option sheets and cart look up the full
+  // dish by id. Recipes/steps/galleries never enter page data.
   const view = {};
   ['id', '_id', 'name', 'cover', 'legacyCover', 'image', 'displayCover', 'description',
     'price', 'signature', 'recommended', 'spicyText', 'displayTags', 'canAddToCart',
-    'restrictionText', 'restrictionKey', 'categoryId', 'nameSegments', 'searchHidden', 'eagerImage']
+    'restrictionText', 'restrictionKey', 'categoryId', 'nameSegments', 'eagerImage']
     .forEach(key => { if (dish[key] !== undefined) view[key] = dish[key]; });
   // Normalize the UI projection only; raw dish/category fields stay unchanged.
   view.categoryId = categoryIdValue(dish.categoryId);
   return view;
+}
+
+function searchText(dish) {
+  return [dish.name, ...(Array.isArray(dish.tags) ? dish.tags : [])].join(' ').toLowerCase();
+}
+
+function sameIds(left = [], right = []) {
+  return left.length === right.length && left.every((item, index) => item.id === right[index].id);
 }
 
 Page({
@@ -76,19 +110,25 @@ Page({
     catalogLoading: true,
     catalogError: false,
     menuReady: false,
+    dishCount: 0,
     featuredDishes: [],
     previewDishes: [],
+    popularDishes: [], // 常点菜品（来自云端订单）
     categories: [{ id: ALL_CATEGORY_ID, name: '全部' }],
     activeCategoryId: ALL_CATEGORY_ID,
     categoryPanels: [],
-    dishes: [],
+    menuScrollAnchor: '',
     cart: [],
     cartCount: 0,
     totalAmount: 0,
     totalAmountText: '0',
+    cartBump: false,
     showCart: false,
-    popularDishes: [], // 常点菜品
-    searchKey: '',     // 搜索关键词
+    searchKey: '',     // 输入框内容
+    searchActive: false,
+    searchResults: [],
+    searchCount: 0,
+    searchHasMore: false,
     drinkOptionVisible: false,
     drinkOptionDish: null,
     drinkOptionInitialOptions: null,
@@ -102,6 +142,10 @@ Page({
   },
 
   onLoad(options = {}) {
+    this._dishes = [];
+    this._dishById = new Map();
+    this._panelCards = [];
+    this._searchMatches = [];
     // 同一 Tab 的视图入口，不新增路由或更改分类数据。
     if (options.view === 'menu') this.setData({ viewMode: 'menu' });
     // 从 url 参数读取搜索词
@@ -116,6 +160,8 @@ Page({
   },
 
   onUnload() {
+    clearTimer(this._searchTimer);
+    clearTimer(this._bumpTimer);
     imageCache.releaseView(this);
   },
 
@@ -123,21 +169,48 @@ Page({
     imageCache.setImageData(this, data, callback, { queue: false });
   },
 
-  activeDishes() {
-    const index = this._panelIndexByCategory && this._panelIndexByCategory.get(this.data.activeCategoryId);
-    const panel = index === undefined ? null : this.data.categoryPanels[index];
-    return panel ? panel.dishes.filter(dish => !dish.searchHidden) : [];
+  dishById(dishId) {
+    return (this._dishById && this._dishById.get(dishId)) || null;
   },
 
+  panelIndex(categoryId) {
+    return this._panelIndexByCategory ? this._panelIndexByCategory.get(categoryId) : undefined;
+  },
+
+  // 当前可见的全部卡片（已渲染部分用页面数据，其余用内存里的卡片）。
+  activeDishes() {
+    if (this.data.searchActive || this.data.searchKey) {
+      const key = String(this.data.searchKey || '').trim().toLowerCase();
+      if (key && key !== this._searchKey) this.computeSearch(key);
+      if (key) return this.data.searchResults.concat(this._searchMatches.slice(this.data.searchResults.length));
+    }
+    const index = this.panelIndex(this.data.activeCategoryId);
+    if (index === undefined) return [];
+    const rendered = this.data.categoryPanels[index].dishes;
+    return rendered.concat(this._panelCards[index].slice(rendered.length));
+  },
+
+  // First visit mounts a panel with its first page; later taps only toggle visibility.
   categoryVisitPatch(categoryId) {
-    const index = this._panelIndexByCategory && this._panelIndexByCategory.get(categoryId);
+    const index = this.panelIndex(categoryId);
     if (index === undefined || this.data.categoryPanels[index].visited) return {};
-    return { [`categoryPanels[${index}].visited`]: true };
+    const cards = this._panelCards[index];
+    return {
+      [`categoryPanels[${index}].visited`]: true,
+      [`categoryPanels[${index}].dishes`]: cards.slice(0, PANEL_PAGE_SIZE),
+      [`categoryPanels[${index}].hasMore`]: cards.length > PANEL_PAGE_SIZE,
+    };
+  },
+
+  // 带图片的数据走 imageCache 投影；纯显示切换直接 setData。
+  applyVisitPatch(patch) {
+    if (Object.keys(patch).some(key => key.endsWith('.dishes'))) this.setMenuImageData(patch);
+    else this.setData(patch);
   },
 
   visibleCoverIDs() {
     const visible = this.data.viewMode === 'home'
-      ? [...this.data.featuredDishes, ...this.data.previewDishes, ...this.data.popularDishes]
+      ? [...this.data.featuredDishes, ...this.data.popularDishes, ...this.data.previewDishes]
       : this.activeDishes().filter((dish, index) => index < EAGER_MENU_IMAGE_COUNT
         || (this._seenCoverIDs && this._seenCoverIDs.has(dish.cover || dish.image)));
     if (this.data.showCart) visible.push(...this.data.cart);
@@ -149,31 +222,32 @@ Page({
   },
 
   onDishImageLoad(event) {
+    // 只有真正渲染出来并加载成功的图片才进入后台缓存队列。
     const source = event.currentTarget.dataset.cover;
-    const visible = this.data.viewMode === 'home'
-      ? [...this.data.featuredDishes, ...this.data.previewDishes, ...this.data.popularDishes]
-      : this.activeDishes();
-    if (this.data.showCart) visible.push(...this.data.cart);
-    if (visible.some(dish => (dish.cover || dish.image) === source)) {
-      if (!this._seenCoverIDs) this._seenCoverIDs = new Set();
-      if (this._seenCoverIDs.has(source)) return;
-      this._seenCoverIDs.add(source);
-      imageCache.queueCache(source);
-    }
+    if (!source) return;
+    if (!this._seenCoverIDs) this._seenCoverIDs = new Set();
+    if (this._seenCoverIDs.has(source)) return;
+    this._seenCoverIDs.add(source);
+    imageCache.queueCache(source);
   },
 
   switchView(e) {
     const viewMode = e.currentTarget.dataset.view === 'menu' ? 'menu' : 'home';
     if (viewMode === this.data.viewMode) return;
-    this.setData({ viewMode, ...(viewMode === 'menu' ? this.categoryVisitPatch(this.data.activeCategoryId) : {}) });
+    this.applyVisitPatch({ viewMode, ...(viewMode === 'menu' ? this.categoryVisitPatch(this.data.activeCategoryId) : {}) });
     this.syncTabSelection();
     this.cacheVisibleCovers();
   },
 
   goAllMenu() {
-    const hadSearch = Boolean(this.data.searchKey);
-    this.setData({ viewMode: 'menu', activeCategoryId: ALL_CATEGORY_ID, searchKey: '', ...this.categoryVisitPatch(ALL_CATEGORY_ID) });
-    if (hadSearch) this.filterDishes();
+    const hadSearch = Boolean(this.data.searchKey || this.data.searchActive);
+    const index = this.panelIndex(ALL_CATEGORY_ID);
+    this.applyVisitPatch({
+      viewMode: 'menu', activeCategoryId: ALL_CATEGORY_ID,
+      ...(index === undefined ? {} : { menuScrollAnchor: `menu-panel-${index}` }),
+      ...this.categoryVisitPatch(ALL_CATEGORY_ID),
+    });
+    if (hadSearch) this.clearSearch();
     this.syncTabSelection();
     this.cacheVisibleCovers();
   },
@@ -185,12 +259,12 @@ Page({
   },
 
   retryCatalog() {
-    return this.loadCatalog();
+    return this.loadCatalog({ force: true });
   },
 
   onDishImageError(e) {
     const dishId = e.currentTarget.dataset.dishid;
-    const dish = this.data.dishes.find(item => item.id === dishId);
+    const dish = this.dishById(dishId);
     if (!dish || dish.displayCover === DEFAULT_COVER) return;
     imageCache.handleImageError(this, e.currentTarget.dataset.cover || dish.cover || dish.image, DEFAULT_COVER, e.currentTarget.dataset.src);
   },
@@ -213,23 +287,24 @@ Page({
     const requestedView = app.globalData.menuTabView;
     if (requestedView === 'home' || requestedView === 'menu') {
       app.globalData.menuTabView = null;
-      this.setData({ viewMode: requestedView,
+      this.applyVisitPatch({ viewMode: requestedView,
         ...(requestedView === 'menu' ? this.categoryVisitPatch(this.data.activeCategoryId) : {}) });
     }
     this.syncTabSelection();
     const revision = typeof catalogService.getCatalogRevision === 'function'
       ? catalogService.getCatalogRevision() : 0;
     if (this._catalogLoaded && this._lastCatalogRevision === revision) {
-      this.refreshCart(this.data.dishes);
+      this.refreshCart();
       this.calculatePopularDishes();
       this.resumePendingCartEdit();
       return;
     }
     // Ordinary re-entry keeps mounted panels and src. Only initial load, explicit
     // refresh or a catalog write revision fetches menu data again.
-    const dishes = await this.loadCatalog();
-    this.refreshCart(Array.isArray(dishes) ? dishes : this.data.dishes);
-    // 只在页面重新显示时刷新常点数据
+    // 购物车不依赖网络，有本地菜单时先显示出来（旧版购物车迁移需要菜单数据）。
+    if (this._dishes.length) this.refreshCart();
+    await this.loadCatalog();
+    this.refreshCart();
     this.calculatePopularDishes();
     this.resumePendingCartEdit();
   },
@@ -249,20 +324,22 @@ Page({
         || (/^(cloud:\/\/|https:\/\/|\/images\/)/.test(category.icon || '') ? category.icon : ''),
       displayIconText: categoryIconText(category.icon),
     }));
-    const previousCache = this._dishViewCache || new Map();
+    // 未改动的菜品复用上次的卡片对象（以及已选定的图片 src）。
+    const previousCards = this._dishViewCache || new Map();
     const previousSignatures = this._dishSourceSignatures || new Map();
     const signatures = new Map();
-    const dishes = dishItems.map((dish, index) => {
+    const dishes = [];
+    const cards = [];
+    dishItems.forEach((dish, index) => {
       const id = dish.id || dish._id;
       const signature = JSON.stringify(dish);
       signatures.set(id, signature);
-      const cached = previousSignatures.get(id) === signature && previousCache.get(id);
-      return { ...decorateDish(dish, cached ? cached.displayCover : undefined), eagerImage: index < EAGER_MENU_IMAGE_COUNT,
-        searchHidden: Boolean(this.data.searchKey && !dish.name.toLowerCase().includes(this.data.searchKey.toLowerCase())),
-        nameSegments: this.getHighlightSegments(dish) };
+      const reusable = previousSignatures.get(id) === signature && previousCards.get(id);
+      const decorated = { ...decorateDish(dish, reusable ? reusable.displayCover : undefined),
+        eagerImage: index < EAGER_MENU_IMAGE_COUNT };
+      dishes.push(decorated);
+      cards.push(reusable && reusable.eagerImage === decorated.eagerImage ? reusable : cardView(decorated));
     });
-    const cards = dishes.map(dish => previousSignatures.get(dish.id || dish._id) === signatures.get(dish.id || dish._id)
-      && previousCache.has(dish.id || dish._id) ? previousCache.get(dish.id || dish._id) : cardView(dish));
     const requestedCategoryId = categoryIdValue(this.data.activeCategoryId);
     const categoryStillAvailable = categories.some(item => item.id === requestedCategoryId);
     const activeCategoryId = categoryStillAvailable ? requestedCategoryId : ALL_CATEGORY_ID;
@@ -273,30 +350,42 @@ Page({
     visited.add(activeCategoryId);
     const byCategory = new Map(categories.map(category => [category.id, []]));
     byCategory.set(ALL_CATEGORY_ID, cards);
-    cards.forEach(dish => {
-      if (dish.categoryId !== ALL_CATEGORY_ID && byCategory.has(dish.categoryId)) byCategory.get(dish.categoryId).push(dish);
+    cards.forEach(card => {
+      if (card.categoryId !== ALL_CATEGORY_ID && byCategory.has(card.categoryId)) byCategory.get(card.categoryId).push(card);
     });
-    const categoryPanels = categories.map(category => {
-      const items = byCategory.get(category.id);
-      return { categoryId: category.id, name: category.id === ALL_CATEGORY_ID ? '全部菜单' : category.name,
-        dishes: items, visited: visited.has(category.id), visibleCount: items.filter(dish => !dish.searchHidden).length };
+    this._panelCards = categories.map(category => byCategory.get(category.id));
+    const categoryPanels = categories.map((category, index) => {
+      const items = this._panelCards[index];
+      const isVisited = visited.has(category.id);
+      return {
+        categoryId: category.id,
+        name: category.id === ALL_CATEGORY_ID ? '全部菜单' : category.name,
+        visited: isVisited,
+        total: items.length,
+        // 只发送已访问分类的第一页；其他分类首次点开时再发。
+        dishes: isVisited ? items.slice(0, PANEL_PAGE_SIZE) : [],
+        hasMore: isVisited && items.length > PANEL_PAGE_SIZE,
+      };
     });
     this._panelIndexByCategory = new Map(categoryPanels.map((panel, index) => [panel.categoryId, index]));
     this._catalogSignature = JSON.stringify([dishItems, categoryItems]);
+    this._dishes = dishes;
+    this._dishById = new Map(dishes.map(dish => [dish.id, dish]));
+    this._cardById = new Map(cards.map(card => [card.id, card]));
+    this._dishViewCache = this._cardById;
+    this._dishSourceSignatures = signatures;
+    this._searchKey = null;
     // Business data and the renderable default panel are committed atomically.
     // No download/resolve/init promise is awaited before menuReady becomes true.
-    this.setMenuImageData({ dishes, categories, activeCategoryId, categoryPanels, menuReady: true, catalogError: false,
-      featuredDishes: dishes.filter(dish => dish.signature || dish.recommended).slice(0, 3),
-      previewDishes: dishes.slice(0, 4) });
-    this._allDishes = this.data.categoryPanels[0].dishes;
-    this._dishViewCache = new Map(this._allDishes.map(dish => [dish.id || dish._id, dish]));
-    this._dishSourceSignatures = signatures;
-    this._dishesByCategory = new Map(categories.map(category => [category.id,
-      category.id === ALL_CATEGORY_ID ? this._allDishes : this._allDishes.filter(dish => dish.categoryId === category.id)]));
+    this.setMenuImageData({ categories, activeCategoryId, categoryPanels, menuReady: true, catalogError: false,
+      dishCount: dishes.length,
+      featuredDishes: cards.filter(card => card.signature || card.recommended).slice(0, 3),
+      previewDishes: cards.slice(0, 4) });
+    if (this.data.searchKey) this.applySearch();
     this.logMenuInit();
-    this.calculatePopularDishes();
+    this.calculatePopularDishes({ refresh: false });
     this.cacheVisibleCovers();
-    return this.data.dishes;
+    return dishes;
   },
 
   logMenuInit() {
@@ -308,44 +397,38 @@ Page({
     const defaultPanel = this.data.categoryPanels.find(panel => panel.categoryId === this.data.activeCategoryId);
     console.log('[menu INIT]', {
       categories: this.data.categories.length,
-      dishes: this.data.dishes.length,
+      dishes: this.data.dishCount,
       panels: this.data.categoryPanels.length,
       activeCategoryId: this.data.activeCategoryId,
       visitedCategoryIds: this.data.categoryPanels.filter(panel => panel.visited).map(panel => panel.categoryId),
-      defaultPanelDishes: defaultPanel ? defaultPanel.dishes.length : 0,
+      defaultPanelDishes: defaultPanel ? defaultPanel.total : 0,
     });
   },
 
-  async loadCatalog() {
+  async loadCatalog(options = {}) {
     if (this._catalogPromise) return this._catalogPromise;
-    const hadDishes = this.data.dishes.length > 0;
+    const hadDishes = this._dishes && this._dishes.length > 0;
     const revision = typeof catalogService.getCatalogRevision === 'function'
       ? catalogService.getCatalogRevision() : 0;
     if (!hadDishes) this.setData({ catalogLoading: true, catalogError: false });
     const request = (async () => {
       try {
-        const [dishResult, categoryResult] = await Promise.all([
-          catalogService.listDishes(),
-          catalogService.listCategories(),
-        ]);
-        const signature = JSON.stringify([dishResult.items, categoryResult.items]);
+        const catalog = await catalogService.loadCatalog({ force: Boolean(options.force) });
+        const signature = JSON.stringify([catalog.dishes, catalog.categories]);
         const currentCategoryAvailable = this.data.activeCategoryId === ALL_CATEGORY_ID
-          || categoryResult.items.some(item => item.enabled !== false && categoryIdOf(item) === this.data.activeCategoryId);
-        if (hadDishes && signature === this._catalogSignature && currentCategoryAvailable) {
-          if (this.data.catalogError) this.setData({ catalogError: false });
-          this._lastCatalogRevision = revision;
-          this._catalogLoaded = true;
-          return this.data.dishes;
-        }
-        const dishes = this.applyCatalogView(dishResult.items, categoryResult.items);
+          || catalog.categories.some(item => item.enabled !== false && categoryIdOf(item) === this.data.activeCategoryId);
         this._lastCatalogRevision = revision;
         this._catalogLoaded = true;
-        return dishes;
+        if (hadDishes && signature === this._catalogSignature && currentCategoryAvailable) {
+          if (this.data.catalogError) this.setData({ catalogError: false });
+          return this._dishes;
+        }
+        return this.applyCatalogView(catalog.dishes, catalog.categories);
       } catch (error) {
         this.setData({ catalogError: true });
         console.error('加载菜单失败', error);
         wx.showToast({ title: error.message || '菜单加载失败', icon: 'none' });
-        return this.data.dishes;
+        return this._dishes;
       } finally {
         if (!hadDishes) this.setData({ catalogLoading: false });
       }
@@ -358,18 +441,31 @@ Page({
     }
   },
 
-  refreshCart(dishes) {
-    const cart = cartService.loadCart({ dishes: dishes || [] });
-    this.applyCart(cart);
+  refreshCart() {
+    this.applyCart(cartService.loadCart({ dishes: this._dishes || [] }));
   },
 
   applyCart(cart) {
+    if (cart === this._appliedCart) return;
+    this._appliedCart = cart;
+    const totalAmount = cartService.getTotalAmount(cart);
     this.setMenuImageData({
       cart,
       cartCount: cartService.getItemCount(cart),
-      totalAmount: cartService.getTotalAmount(cart),
-      totalAmountText: formatMoney(cartService.getTotalAmount(cart)),
+      totalAmount,
+      totalAmountText: formatMoney(totalAmount),
     });
+  },
+
+  // 加菜反馈：轻震 + 购物车角标弹一下，不弹出遮挡操作的 Toast。
+  celebrateAdd() {
+    try { if (typeof wx.vibrateShort === 'function') wx.vibrateShort({ type: 'light' }); } catch (_) { /* 可选反馈 */ }
+    clearTimer(this._bumpTimer);
+    if (this.data.cartBump) this.setData({ cartBump: false });
+    const bump = () => this.setData({ cartBump: true });
+    if (typeof wx.nextTick === 'function') wx.nextTick(bump);
+    else bump();
+    if (typeof setTimeout === 'function') this._bumpTimer = setTimeout(() => this.setData({ cartBump: false }), 400);
   },
 
   resumePendingCartEdit() {
@@ -381,7 +477,7 @@ Page({
       wx.showToast({ title: '该点菜单项目已不存在', icon: 'none' });
       return;
     }
-    const dish = this.data.dishes.find(item => item.id === cartItem.dishId);
+    const dish = this.dishById(cartItem.dishId);
     if (!dish) {
       wx.showToast({ title: '菜品已下架，无法修改', icon: 'none' });
       return;
@@ -401,104 +497,122 @@ Page({
     }
   },
 
-  // 计算常点菜品（返回菜品对象数组，而非仅 dishId 字符串数组）
-  calculatePopularDishes() {
-    const orders = wx.getStorageSync('orders') || [];
-    const dishes = this.data.dishes;
-    const dishCount = {};
-
-    orders.forEach(order => {
-      if (order.items) {
-        order.items.forEach(item => {
-          dishCount[item.dishId] = (dishCount[item.dishId] || 0) + item.num;
-        });
-      }
-    });
-
-    const sorted = Object.entries(dishCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-
-    // 将 dishId 转换为完整的菜品对象（包含 name、image），找不到的菜品跳过
-    const popularDishes = sorted
-      .map(([dishId]) => dishes.find(d => d.id === dishId))
-      .filter(Boolean);
-
-    this.setMenuImageData({ popularDishes });
+  // 常点菜品：先用上次统计结果立即显示，再在后台按云端订单更新。
+  calculatePopularDishes(options = {}) {
+    const apply = dishIds => {
+      if (!this._cardById) return;
+      const popularDishes = (dishIds || []).map(id => this._cardById.get(id)).filter(Boolean)
+        .slice(0, POPULAR_DISH_COUNT);
+      if (!sameIds(popularDishes, this.data.popularDishes)) this.setMenuImageData({ popularDishes });
+    };
+    apply(orderService.peekFrequentDishIds());
+    if (options.refresh === false) return Promise.resolve();
+    return orderService.getFrequentDishIds().then(apply).catch(() => {});
   },
 
-  // 搜索输入
+  // 搜索输入：输入框立即更新，结果稍等输入停顿后再算，打字不卡。
   onSearchInput(e) {
     const searchKey = e.detail.value;
     this.setData({ searchKey });
-    this.filterDishes();
+    clearTimer(this._searchTimer);
+    if (typeof setTimeout !== 'function') {
+      this.applySearch();
+      return;
+    }
+    this._searchTimer = setTimeout(() => this.applySearch(), SEARCH_DEBOUNCE_MS);
   },
 
   // 清除搜索
   onSearchClear() {
+    clearTimer(this._searchTimer);
     this.setData({ searchKey: '' });
-    this.filterDishes();
+    this.clearSearch();
+  },
+
+  clearSearch() {
+    this._searchKey = '';
+    this._searchMatches = [];
+    if (!this.data.searchActive && !this.data.searchResults.length) return;
+    const index = this.panelIndex(this.data.activeCategoryId);
+    this.setData({ searchActive: false, searchResults: [], searchCount: 0, searchHasMore: false,
+      ...(index === undefined ? {} : { menuScrollAnchor: `menu-panel-${index}` }) });
+  },
+
+  computeSearch(key) {
+    this._searchKey = key;
+    // 在全部菜品里搜（名称和标签），菜多时不用先选对分类。
+    this._searchMatches = (this._panelCards[this.panelIndex(ALL_CATEGORY_ID)] || [])
+      .filter(card => searchText(this.dishById(card.id) || card).includes(key))
+      .map(card => ({ ...card, nameSegments: highlightSegments(card.name, key) }));
+    return this._searchMatches;
+  },
+
+  // 搜索结果单独一个列表，不改动已渲染的分类面板。
+  applySearch() {
+    const key = String(this.data.searchKey || '').trim().toLowerCase();
+    if (!key) {
+      this.clearSearch();
+      return;
+    }
+    const matches = this.computeSearch(key);
+    this.setMenuImageData({
+      searchActive: true,
+      searchCount: matches.length,
+      searchResults: matches.slice(0, SEARCH_PAGE_SIZE),
+      searchHasMore: matches.length > SEARCH_PAGE_SIZE,
+      menuScrollAnchor: 'menu-search-top',
+    });
+  },
+
+  // 滚动到底部：给当前列表追加下一页（只发送新增的卡片）。
+  onMenuReachBottom() {
+    if (this.data.searchActive) {
+      const start = this.data.searchResults.length;
+      if (start >= this._searchMatches.length) return;
+      const patch = {};
+      this._searchMatches.slice(start, start + SEARCH_PAGE_SIZE).forEach((card, offset) => {
+        patch[`searchResults[${start + offset}]`] = card;
+      });
+      patch.searchHasMore = start + SEARCH_PAGE_SIZE < this._searchMatches.length;
+      this.setMenuImageData(patch);
+      return;
+    }
+    const index = this.panelIndex(this.data.activeCategoryId);
+    if (index === undefined) return;
+    const panel = this.data.categoryPanels[index];
+    const cards = this._panelCards[index];
+    const start = panel.dishes.length;
+    if (!panel.visited || start >= cards.length) return;
+    const patch = {};
+    cards.slice(start, start + PANEL_PAGE_SIZE).forEach((card, offset) => {
+      patch[`categoryPanels[${index}].dishes[${start + offset}]`] = card;
+    });
+    patch[`categoryPanels[${index}].hasMore`] = start + PANEL_PAGE_SIZE < cards.length;
+    this.setMenuImageData(patch);
   },
 
   // 切换分类
   onCategoryChange(e) {
     const categoryId = categoryIdValue(e.currentTarget.dataset.categoryid);
-    if (categoryId === this.data.activeCategoryId || !this._panelIndexByCategory
-      || !this._panelIndexByCategory.has(categoryId)) return;
+    const index = this.panelIndex(categoryId);
+    if ((categoryId === this.data.activeCategoryId && !this.data.searchActive) || index === undefined) return;
     // On first visit mount this panel once; subsequent taps only change visibility.
-    // No request, filtering, image resolution or cache queue in a category tap.
-    this.setData({ activeCategoryId: categoryId, ...this.categoryVisitPatch(categoryId) });
-  },
-
-  // 计算高亮文本（返回片段数组）
-  getHighlightSegments(dish) {
-    if (!this.data.searchKey) {
-      return [{ key: 'full', text: dish.name, highlight: false }];
+    // No request, filtering or image download in a category tap.
+    this.applyVisitPatch({ activeCategoryId: categoryId, menuScrollAnchor: `menu-panel-${index}`,
+      ...this.categoryVisitPatch(categoryId) });
+    // 点分类表示想按分类浏览，顺手退出搜索。
+    if (this.data.searchKey || this.data.searchActive) {
+      clearTimer(this._searchTimer);
+      this.setData({ searchKey: '' });
+      this.clearSearch();
     }
-    const key = this.data.searchKey.toLowerCase();
-    const name = dish.name;
-    const lowerName = name.toLowerCase();
-    const index = lowerName.indexOf(key);
-    if (index === -1) {
-      return [{ key: 'full', text: dish.name, highlight: false }];
-    }
-    const segments = [];
-    if (index > 0) segments.push({ key: 'before', text: name.slice(0, index), highlight: false });
-    segments.push({ key: 'match', text: name.slice(index, index + key.length), highlight: true });
-    if (index + key.length < name.length) {
-      segments.push({ key: 'after', text: name.slice(index + key.length), highlight: false });
-    }
-    return segments;
-  },
-
-  // Search only: update text/visibility in place; never replace dish/image nodes.
-  filterDishes() {
-    const key = this.data.searchKey.toLowerCase();
-    const patch = {};
-    const searchViews = new Map((this._allDishes || []).map(dish => [dish.id || dish._id, {
-      searchHidden: Boolean(key && !dish.name.toLowerCase().includes(key)),
-      nameSegments: this.getHighlightSegments(dish),
-    }]));
-    this.data.categoryPanels.forEach((panel, panelIndex) => {
-      let count = 0;
-      panel.dishes.forEach((dish, dishIndex) => {
-        const view = searchViews.get(dish.id || dish._id);
-        const prefix = `categoryPanels[${panelIndex}].dishes[${dishIndex}]`;
-        if (!view.searchHidden) count += 1;
-        if (dish.searchHidden !== view.searchHidden) patch[`${prefix}.searchHidden`] = view.searchHidden;
-        if (JSON.stringify(dish.nameSegments) !== JSON.stringify(view.nameSegments)) patch[`${prefix}.nameSegments`] = view.nameSegments;
-      });
-      if (panel.visibleCount !== count) patch[`categoryPanels[${panelIndex}].visibleCount`] = count;
-    });
-    (this._allDishes || []).forEach(dish => Object.assign(dish, searchViews.get(dish.id || dish._id)));
-    if (Object.keys(patch).length) this.setData(patch);
   },
 
   // 添加到购物车
   addToCart(e) {
-    const requestedDish = e.currentTarget.dataset.dish || {};
-    const dishId = requestedDish.id || requestedDish.dishId;
-    const dish = this.data.dishes.find(item => item.id === dishId);
+    const dataset = e.currentTarget.dataset || {};
+    const dishId = dataset.dishid || (dataset.dish && (dataset.dish.id || dataset.dish.dishId));
+    const dish = this.dishById(dishId);
     const restriction = dish
       ? getDishRestriction(dish)
       : getDishRestriction({ enabled: false });
@@ -543,7 +657,8 @@ Page({
     });
   },
 
-  addFoodToCart(dish, selectedOptions, quantity, editingCartItemId = '') {
+  // 食物和饮品共用：编辑时替换原行，新增时合并相同规格。
+  putDishInCart(dish, selectedOptions, quantity, editingCartItemId, updatedText) {
     const restriction = dish
       ? getDishRestriction(dish)
       : getDishRestriction({ enabled: false });
@@ -553,21 +668,11 @@ Page({
     }
     try {
       const cart = editingCartItemId
-        ? cartService.replaceItem(
-          editingCartItemId,
-          dish,
-          selectedOptions,
-          quantity,
-          { dishes: this.data.dishes },
-        )
-        : cartService.addDish(
-          dish,
-          selectedOptions,
-          quantity,
-          { dishes: this.data.dishes },
-        );
+        ? cartService.replaceItem(editingCartItemId, dish, selectedOptions, quantity, { dishes: this._dishes })
+        : cartService.addDish(dish, selectedOptions, quantity, { dishes: this._dishes });
       this.applyCart(cart);
-      wx.showToast({ title: editingCartItemId ? '需求已更新' : '已加入点菜单', icon: 'success' });
+      if (editingCartItemId) wx.showToast({ title: updatedText, icon: 'success' });
+      else this.celebrateAdd();
       return true;
     } catch (error) {
       wx.showToast({ title: error.message || '加入点菜单失败', icon: 'none' });
@@ -575,9 +680,13 @@ Page({
     }
   },
 
+  addFoodToCart(dish, selectedOptions, quantity, editingCartItemId = '') {
+    return this.putDishInCart(dish, selectedOptions, quantity, editingCartItemId, '需求已更新');
+  },
+
   onFoodOptionsConfirm(event) {
     const detail = event.detail || {};
-    const dish = this.data.dishes.find(item => item.id === detail.dishId);
+    const dish = this.dishById(detail.dishId);
     if (!dish) {
       wx.showToast({ title: '菜品已下架，请刷新菜单', icon: 'none' });
       return;
@@ -595,7 +704,7 @@ Page({
     const cartItemId = event.currentTarget.dataset.cartitemid;
     const cartItem = this.data.cart.find(item => item.cartItemId === cartItemId);
     if (!cartItem || cartItem.type !== 'food') return;
-    const dish = this.data.dishes.find(item => item.id === cartItem.dishId);
+    const dish = this.dishById(cartItem.dishId);
     const restriction = dish
       ? getDishRestriction(dish)
       : getDishRestriction({ enabled: false });
@@ -631,40 +740,12 @@ Page({
   },
 
   addDrinkToCart(dish, selectedOptions, quantity, editingCartItemId = '') {
-    const restriction = dish
-      ? getDishRestriction(dish)
-      : getDishRestriction({ enabled: false });
-    if (restriction) {
-      wx.showToast({ title: restriction.message, icon: 'none' });
-      return false;
-    }
-    try {
-      const cart = editingCartItemId
-        ? cartService.replaceItem(
-          editingCartItemId,
-          dish,
-          selectedOptions,
-          quantity,
-          { dishes: this.data.dishes },
-        )
-        : cartService.addDish(
-          dish,
-          selectedOptions,
-          quantity,
-          { dishes: this.data.dishes },
-        );
-      this.applyCart(cart);
-      wx.showToast({ title: editingCartItemId ? '规格已更新' : '已加入点菜单', icon: 'success' });
-      return true;
-    } catch (error) {
-      wx.showToast({ title: error.message || '加入点菜单失败', icon: 'none' });
-      return false;
-    }
+    return this.putDishInCart(dish, selectedOptions, quantity, editingCartItemId, '规格已更新');
   },
 
   onDrinkOptionsConfirm(event) {
     const detail = event.detail || {};
-    const dish = this.data.dishes.find(item => item.id === detail.dishId);
+    const dish = this.dishById(detail.dishId);
     if (!dish) {
       wx.showToast({ title: '饮品已下架，请刷新菜单', icon: 'none' });
       return;
@@ -682,7 +763,7 @@ Page({
     const cartItemId = event.currentTarget.dataset.cartitemid;
     const cartItem = this.data.cart.find(item => item.cartItemId === cartItemId);
     if (!cartItem || cartItem.type !== 'drink') return;
-    const dish = this.data.dishes.find(item => item.id === cartItem.dishId);
+    const dish = this.dishById(cartItem.dishId);
     const restriction = dish
       ? getDishRestriction(dish)
       : getDishRestriction({ enabled: false });
@@ -701,7 +782,7 @@ Page({
     const cartItemId = e.currentTarget.dataset.cartitemid;
     const item = this.data.cart.find(cartItem => cartItem.cartItemId === cartItemId);
     if (!item) return;
-    const dish = this.data.dishes.find(currentDish => currentDish.id === item.dishId);
+    const dish = this.dishById(item.dishId);
     const restriction = dish
       ? getDishRestriction(dish)
       : getDishRestriction({ enabled: false });
@@ -761,9 +842,9 @@ Page({
     });
   },
 
-  // 跳转详情页（T7修复：menu.wxml的bindtap=goDetail原本死链接）
+  // 跳转详情页
   goDetail(e) {
     const dishId = e.currentTarget.dataset.dishid;
-    wx.navigateTo({ url: '/package-extra/detail/detail?dishid=' + dishId });
+    wx.navigateTo({ url: '/package-extra/detail/detail?dishid=' + encodeURIComponent(dishId) });
   },
 });

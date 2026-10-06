@@ -9,6 +9,7 @@
 .import-btn { background: #fff; color: #e85b3f; border: 1rpx solid #e85b3f; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; }
 .orders-btn { position: relative; display: flex; align-items: center; background: #e85b3f; color: #fff; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; }
 .orders-badge { position: absolute; top: -12rpx; right: -12rpx; min-width: 30rpx; height: 30rpx; padding: 0 5rpx; box-sizing: border-box; border-radius: 18rpx; background: #cf3326; color: #fff; border: 2rpx solid #fff; font-size: 18rpx; font-weight: 700; line-height: 27rpx; text-align: center; white-space: nowrap; }
+.notify-btn { background: #fdf1d8; color: #8a5a12; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; white-space: nowrap; }
 .meal-set-btn { background: #edf3df; color: #5e763e; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; white-space: nowrap; }
 .category-btn { background: #fff5ef; color: #a94b35; padding: 14rpx 20rpx; border-radius: 40rpx; font-size: 22rpx; white-space: nowrap; }
 
@@ -38,3 +39,7 @@
 .dish-disabled { opacity: 0.62; }
 .dish-disabled .dish-img { filter: grayscale(100%); }
 .empty { padding: 200rpx 0; color: #999; text-align: center; font-size: 28rpx; }
+
+.manage-search { display: flex; align-items: center; gap: 16rpx; margin-bottom: 22rpx; padding: 0 24rpx; height: 72rpx; border-radius: 36rpx; background: #fff; border: 1rpx solid #eee3d6; }
+.manage-search-input { flex: 1; min-width: 0; height: 72rpx; font-size: 26rpx; }
+.manage-search-count { font-size: 22rpx; color: #9a8a79; white-space: nowrap; }

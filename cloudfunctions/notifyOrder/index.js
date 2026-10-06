@@ -8,7 +8,7 @@ const {
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
-const TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
+const { NEW_ORDER_TEMPLATE_ID: TEMPLATE_ID } = require('./template');
 
 function cleanString(value, maxLength = 100) {
   if (value === null || value === undefined) return '';
@@ -79,7 +79,8 @@ async function notifyNewOrder(orderId, openid) {
   try {
     const result = await cloud.openapi.subscribeMessage.send({
       touser: adminOpenId,
-      page: `/pages/order-detail/order-detail?id=${encodeURIComponent(order._id || order.id)}&manage=1`,
+      // 订单详情页在 package-order 分包里；旧路径 /pages/order-detail 不存在，点通知会打不开。
+      page: `package-order/order-detail/order-detail?id=${encodeURIComponent(order._id || order.id)}&manage=1`,
       data: {
         phrase1: { value: '新订单' },
         date2: { value: formatDate(order.createdAt) },

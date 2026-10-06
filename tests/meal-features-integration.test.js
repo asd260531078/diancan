@@ -139,6 +139,7 @@ assert.deepStrictEqual(getMealBatchSelections(cancelMealBatch(createMealBatch([{
 
 // 11/12/13. 普通菜单、随机、套餐最终都走同一 cartKey；同规格合并、不同规格拆分。
 storage = {};
+cartService.clearCart();
 const drinkOptions = { cupSize: '中杯500ml', sugarLevel: '半甜', temperature: '去冰', sweetener: '', toppings: [] };
 cartService.addDish(dishes[5], drinkOptions, 1, { dishes });
 cartService.addDishes([{ dish: dishes[5], selectedOptions: drinkOptions, quantity: 1 }], { dishes });
@@ -157,6 +158,7 @@ cart = cartService.addDishes([{
 assert.strictEqual(cart.filter(item => item.dishId === 'coffee-a').length, 3);
 
 storage = {};
+cartService.clearCart();
 const foodOptions = { tastePreference: '少辣', customRequests: ['免葱'] };
 cartService.addDish(dishes[0], foodOptions, 1, { dishes });
 cartService.addDishes([{ dish: dishes[0], selectedOptions: { tastePreference: '少辣', customRequests: ['免葱'] }, quantity: 1 }], { dishes });

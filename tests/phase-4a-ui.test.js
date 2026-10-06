@@ -29,6 +29,7 @@ const catalog = {
   getCachedCatalog() { return { dishes: [], categories: [] }; },
   async listDishes() { dishRequests += 1; if (failed) throw new Error('test offline'); return { items: dishes }; },
   async listCategories() { return { items: categories }; },
+  async loadCatalog() { dishRequests += 1; if (failed) throw new Error('test offline'); return { dishes, categories }; },
   getCatalogRevision() { return catalogRevision; },
 };
 vm.runInNewContext(source, {
@@ -47,7 +48,7 @@ vm.runInNewContext(source, {
         queueCaches() {}, queueCache() {}, refreshView() {}, releaseView() {},
         handleImageError(owner, source, fallback) {
           const patch = {};
-          for (const field of ['dishes', 'featuredDishes', 'previewDishes']) {
+          for (const field of ['featuredDishes', 'previewDishes', 'popularDishes', 'searchResults']) {
             patch[field] = owner.data[field].map(item => (item.cover || item.image) === source ? { ...item, displayCover: fallback } : item);
           }
           patch.categoryPanels = owner.data.categoryPanels.map(panel => ({ ...panel,
@@ -57,6 +58,7 @@ vm.runInNewContext(source, {
         },
       },
       '../../services/catalog': catalog,
+      '../../services/orders': { peekFrequentDishIds: () => [], getFrequentDishIds: async () => [] },
       '../../services/cart': { loadCart: () => [], getItemCount: () => 0, getTotalAmount: () => 0 },
       '../../utils/dish-status': status,
       '../../utils/cart': options,
@@ -87,15 +89,15 @@ const ids = items => Array.from(items, item => item.id);
   assert.strictEqual(page.data.catalogLoading, false);
   assert.deepStrictEqual(ids(page.data.featuredDishes), ['food', 'drink']);
   assert.strictEqual(page.data.previewDishes.length, 4);
-  assert.strictEqual(page.data.dishes[0].displayCover, images.DEFAULT_COVER);
-  assert.strictEqual(page.data.dishes[1].price, null);
-  assert.strictEqual(page.data.dishes[2].price, 0);
+  assert.strictEqual(page.dishById('food').displayCover, images.DEFAULT_COVER);
+  assert.strictEqual(page._dishes[1].price, null);
+  assert.strictEqual(page._dishes[2].price, 0);
   assert.strictEqual(page.data.categories[3].displayIconText, '⌂');
-  assert.strictEqual(page.data.dishes[3].restrictionText, '今日售罄');
-  assert.strictEqual(page.data.dishes[4].restrictionText, '今天不做');
-  const cachedDishes = page.data.dishes;
+  assert.strictEqual(page._dishes[3].restrictionText, '今日售罄');
+  assert.strictEqual(page._dishes[4].restrictionText, '今天不做');
+  const cachedDishes = page._dishes;
   await page.loadCatalog();
-  assert.strictEqual(page.data.dishes, cachedDishes, '同样的云端数据不重新设置整批图片列表');
+  assert.strictEqual(page._dishes, cachedDishes, '同样的云端数据不重新设置整批图片列表');
   const beforeQuickReturn = dishRequests;
   await page.onShow();
   assert.strictEqual(dishRequests, beforeQuickReturn, '短时间返回菜单不重新请求云端');
@@ -129,7 +131,7 @@ const ids = items => Array.from(items, item => item.id);
   await page.loadCatalog();
   assert.strictEqual(page.data.activeCategoryId, 'all');
   assert.strictEqual(dishes[0].categoryId, 'main');
-  page.data.dishes[0].displayCover = 'cloud://test/missing.png';
+  page._dishes[0].displayCover = 'cloud://test/missing.png';
   page.onDishImageError(tap({ dishid: 'food' }));
   assert.strictEqual(page.data.featuredDishes[0].displayCover, images.DEFAULT_COVER);
   assert.strictEqual(page.data.previewDishes[0].displayCover, images.DEFAULT_COVER);
@@ -140,7 +142,7 @@ const ids = items => Array.from(items, item => item.id);
   await page.loadCatalog();
   assert.strictEqual(page.data.catalogLoading, false);
   assert.strictEqual(page.data.catalogError, true);
-  assert.strictEqual(page.data.dishes.length, 5, '刷新失败不清空已有菜单');
+  assert.strictEqual(page._dishes.length, 5, '刷新失败不清空已有菜单');
   failed = false;
   dishes.splice(0);
   await page.loadCatalog();
@@ -151,7 +153,7 @@ const ids = items => Array.from(items, item => item.id);
   assert.strictEqual(page.data.viewMode, 'menu');
 
   assert.ok(wxml.includes("<template name=\"dishCard\">"));
-  assert.strictEqual((wxml.match(/template is='dishCard'/g) || []).length, 2);
+  assert.strictEqual((wxml.match(/template is='dishCard'/g) || []).length, 3);
   assert.ok(wxml.includes("disabled='{{!item.canAddToCart}}'"));
   assert.ok(wxml.includes("catchtap='addToCart'"));
   assert.ok(wxml.includes("class='category-rail' scroll-y"));

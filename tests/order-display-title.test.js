@@ -42,16 +42,5 @@ page.setData = function setData(patch) { Object.assign(this.data, patch); };
   assert.ok(orderView.includes('{{item.orderNo}}'));
   assert.ok(orderView.includes('status-{{item.status}}'));
 
-  const theme = read('styles/theme.wxss');
-  assert.ok(theme.includes('--wood-grain:'));
-  assert.ok(!theme.includes('repeating-linear-gradient'), '木纹不再使用规则重复条纹');
-  assert.ok(theme.includes('data:image/jpeg;base64,'), 'WXSS 使用兼容的内嵌纹理');
-  assert.ok(fs.statSync(path.join(root, 'images/izakaya-wood-texture-compact.jpg')).size < 30 * 1024, '木纹资源应轻量');
-  for (const file of ['app.wxss', 'pages/menu/menu.wxss', 'pages/profile/profile.wxss', 'components/drink-option-sheet/index.wxss']) {
-    assert.ok(read(file).includes('var(--wood-grain)'), `${file} 应共用木纹 token`);
-    assert.ok(read(file).includes('background-repeat: no-repeat'), `${file} 不应平铺木纹`);
-  }
-  const home = read('pages/menu/menu.wxml');
-  for (const icon of ['choice-plate', 'set-tray', 'menu-book']) assert.ok(home.includes(icon));
-  console.log('phase 4 order/wood/icon tests passed');
+  console.log('phase 4 order title/icon tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

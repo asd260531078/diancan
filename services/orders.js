@@ -13,7 +13,10 @@ function buildCreateOrderPayload(draft = {}) {
 }
 
 async function createOrder(draft) {
-  return callFamilyApi('createOrder', buildCreateOrderPayload(draft));
+  const result = await callFamilyApi('createOrder', buildCreateOrderPayload(draft));
+  invalidateFrequentDishes();
+  invalidateOpenOrderSummary();
+  return result;
 }
 
 async function listMyOrders(options = {}) {
@@ -23,7 +26,7 @@ async function listMyOrders(options = {}) {
   });
 }
 
-async function listMyUnfinishedOrderSummary() {
+async function scanUnfinishedOrderSummary() {
   const unfinished = new Set(['pending', 'confirmed', 'preparing']);
   let count = 0;
   const orderIds = [];
@@ -49,9 +52,95 @@ async function listMyUnfinishedOrderSummary() {
   }
 }
 
-async function countMyUnfinishedOrders() {
-  const summary = await listMyUnfinishedOrderSummary();
+// 每个 Tab 页显示时都会刷新角标：合并并发请求，并在几秒内复用结果。
+const OPEN_SUMMARY_TTL_MS = 5000;
+let openSummaryCache = null;
+let openSummaryRequest = null;
+
+async function listMyUnfinishedOrderSummary(options = {}) {
+  if (!options.force && openSummaryCache && Date.now() - openSummaryCache.at < OPEN_SUMMARY_TTL_MS) {
+    return openSummaryCache.summary;
+  }
+  if (openSummaryRequest) return openSummaryRequest;
+  openSummaryRequest = callFamilyApi('getMyOpenOrderSummary')
+    .catch(error => {
+      // 云函数尚未重新部署时退回旧的逐页统计。
+      if (error && error.code === 'UNKNOWN_ACTION') return scanUnfinishedOrderSummary();
+      throw error;
+    })
+    .then(summary => {
+      const result = { count: Number(summary.count) || 0, orderIds: Array.isArray(summary.orderIds) ? summary.orderIds : [] };
+      openSummaryCache = { summary: result, at: Date.now() };
+      return result;
+    })
+    .finally(() => { openSummaryRequest = null; });
+  return openSummaryRequest;
+}
+
+function invalidateOpenOrderSummary() {
+  openSummaryCache = null;
+}
+
+async function countMyUnfinishedOrders(options = {}) {
+  const summary = await listMyUnfinishedOrderSummary(options);
   return summary.count;
+}
+
+// 常点菜品：用最近的云端订单统计，5 分钟内复用结果；失败时返回上次结果，不打断页面。
+const FREQUENT_TTL_MS = 5 * 60 * 1000;
+const FREQUENT_STORAGE_KEY = 'family_frequent_dishes_v1';
+let frequentCache = null;
+let frequentRequest = null;
+
+function readFrequentSnapshot() {
+  try {
+    const saved = wx.getStorageSync(FREQUENT_STORAGE_KEY);
+    return saved && Array.isArray(saved.dishIds) ? saved : null;
+  } catch (_) { return null; }
+}
+
+function countFrequentDishIds(orders = [], limit = 6) {
+  const counts = new Map();
+  orders.forEach(order => {
+    if (!order || order.status === 'cancelled' || !Array.isArray(order.items)) return;
+    order.items.forEach(item => {
+      const dishId = item && item.dishId;
+      if (!dishId) return;
+      counts.set(dishId, (counts.get(dishId) || 0) + (Number(item.quantity) || 1));
+    });
+  });
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([dishId]) => dishId);
+}
+
+/** 同步读取上次统计结果（内存或本地），首页立即可用。 */
+function peekFrequentDishIds() {
+  if (frequentCache) return frequentCache.dishIds;
+  const saved = readFrequentSnapshot();
+  return saved ? saved.dishIds : [];
+}
+
+async function getFrequentDishIds(options = {}) {
+  if (!options.force && frequentCache && Date.now() - frequentCache.at < FREQUENT_TTL_MS) return frequentCache.dishIds;
+  if (frequentRequest) return frequentRequest;
+  frequentRequest = listMyOrders({ limit: 30 })
+    .then(result => {
+      const dishIds = countFrequentDishIds(result.items || []);
+      frequentCache = { dishIds, at: Date.now() };
+      try {
+        if (typeof wx.setStorage === 'function') wx.setStorage({ key: FREQUENT_STORAGE_KEY, data: { dishIds }, fail() {} });
+      } catch (_) { /* 只是展示优化。 */ }
+      return dishIds;
+    })
+    .catch(error => {
+      console.warn('统计常点菜品失败', error);
+      return peekFrequentDishIds();
+    })
+    .finally(() => { frequentRequest = null; });
+  return frequentRequest;
+}
+
+function invalidateFrequentDishes() {
+  if (frequentCache) frequentCache.at = 0;
 }
 
 async function getMyOrderDetail(orderId) {
@@ -59,7 +148,9 @@ async function getMyOrderDetail(orderId) {
 }
 
 async function cancelMyOrder(orderId) {
-  return callFamilyApi('cancelMyOrder', { orderId });
+  const result = await callFamilyApi('cancelMyOrder', { orderId });
+  invalidateOpenOrderSummary();
+  return result;
 }
 
 async function listManageOrders(options = {}) {
@@ -75,7 +166,9 @@ async function getManageOrderDetail(orderId) {
 }
 
 async function updateOrderStatus(orderId, status) {
-  return callFamilyApi('updateOrderStatus', { orderId, status });
+  const result = await callFamilyApi('updateOrderStatus', { orderId, status });
+  invalidateOpenOrderSummary();
+  return result;
 }
 
 async function notifyOrderCreated(orderId) {
@@ -89,13 +182,16 @@ async function notifyOrderCreated(orderId) {
 module.exports = {
   buildCreateOrderPayload,
   cancelMyOrder,
+  countFrequentDishIds,
   countMyUnfinishedOrders,
   createOrder,
+  getFrequentDishIds,
   getManageOrderDetail,
   getMyOrderDetail,
   listManageOrders,
   listMyUnfinishedOrderSummary,
   listMyOrders,
   notifyOrderCreated,
+  peekFrequentDishIds,
   updateOrderStatus,
 };

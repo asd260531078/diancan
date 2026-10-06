@@ -15,14 +15,26 @@ async function run() {
     { id: 'e', status: 'cancelled' },
   ];
   const actions = [];
+  let legacyServer = false;
   const serviceModule = { exports: {} };
   vm.runInNewContext(read('services/orders.js'), {
     module: serviceModule,
+    Date,
     require(file) {
       assert.strictEqual(file, './cloud');
       return {
         async callFamilyApi(action, options) {
           actions.push(action);
+          if (action === 'getMyOpenOrderSummary') {
+            if (legacyServer) {
+              const error = new Error('未知操作');
+              error.code = 'UNKNOWN_ACTION';
+              throw error;
+            }
+            // 模拟云端按状态过滤，最多返回 100 条。
+            const open = ownOrders.filter(item => ['pending', 'confirmed', 'preparing'].includes(item.status)).slice(0, 100);
+            return { count: open.length, orderIds: open.map(item => item.id) };
+          }
           assert.strictEqual(action, 'listMyOrders');
           const items = ownOrders.slice(options.offset, options.offset + options.limit);
           const hasMore = options.offset + items.length < ownOrders.length;
@@ -34,9 +46,16 @@ async function run() {
   const service = serviceModule.exports;
   assert.strictEqual(await service.countMyUnfinishedOrders(), 3);
   assert.deepStrictEqual(Array.from((await service.listMyUnfinishedOrderSummary()).orderIds), ['a', 'b', 'c']);
+  assert.deepStrictEqual(actions, ['getMyOpenOrderSummary'], 'one filtered request, then reuse for a few seconds');
+  await Promise.all([service.listMyUnfinishedOrderSummary({ force: true }), service.listMyUnfinishedOrderSummary({ force: true })]);
+  assert.strictEqual(actions.length, 2, 'concurrent tab badges share one request');
   ownOrders = Array.from({ length: 101 }, (_, index) => ({ id: `order-${index}`, status: 'pending' }));
-  assert.strictEqual(await service.countMyUnfinishedOrders(), 100);
-  assert.ok(actions.every(action => action === 'listMyOrders'));
+  assert.strictEqual(await service.countMyUnfinishedOrders({ force: true }), 100);
+  assert.ok(!actions.includes('listMyOrders'), 'badge never pages through order history');
+  // 旧云函数：退回逐页统计。
+  legacyServer = true;
+  assert.strictEqual(await service.countMyUnfinishedOrders({ force: true }), 100);
+  assert.ok(actions.includes('listMyOrders'));
 
   let component;
   let badgeCount = 0;
