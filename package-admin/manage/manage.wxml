@@ -13,6 +13,7 @@
       <view wx:if="{{notifyConfigured}}" class="notify-btn" bindtap="onEnableOrderNotify">开启新订单提醒</view>
       <view class="meal-set-btn" bindtap="onManageMealSets">套餐管理</view>
       <view wx:if="{{hasLegacyDishes}}" class="import-btn" bindtap="onImportLegacy">导入旧数据</view>
+      <view wx:if="{{missingThumbCount > 0}}" class="import-btn" bindtap="onBackfillThumbnails">补菜单小图（{{missingThumbCount}}）</view>
       <view class="category-btn" bindtap="onManageCategories">分类管理</view>
       <view class="add-btn" bindtap="onAddDish">＋ 添加</view>
     </view>

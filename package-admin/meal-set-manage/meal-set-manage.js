@@ -16,7 +16,7 @@ Page({
   async loadData() {
     this.setData({ loading: true });
     try {
-      const session = await authService.getSession(true);
+      const session = await authService.getSession(true, { maxAgeMs: 30000 });
       if (!session.isAdmin) {
         this.setData({ isAdmin: false, mealSets: [] });
         wx.showToast({ title: '当前账号不是管理员', icon: 'none' });

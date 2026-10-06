@@ -12,6 +12,8 @@ const PURPOSE_PATHS = {
   'drink-gallery': 'drinks/gallery',
   'drink-step': 'drinks/steps',
   'meal-set-cover': 'meal-sets/cover',
+  'dish-thumb': 'dishes/thumb',
+  'drink-thumb': 'drinks/thumb',
 };
 
 async function isAdmin(openid) {

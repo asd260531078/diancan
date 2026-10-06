@@ -69,7 +69,14 @@ function decorateDetailDish(dish = {}, warn = console.warn) {
   };
 }
 
+/** 列表/购物车用的封面：有与当前主图匹配的缩略图时用缩略图，否则用主图。 */
+function listCover(dish = {}) {
+  const cover = dish.cover || dish.image || '';
+  return dish.coverThumb && dish.coverThumbOf === cover ? dish.coverThumb : cover;
+}
+
 module.exports = {
+  listCover,
   DEFAULT_COVER,
   SPICY_LABEL,
   SPICY_TEXT,

@@ -104,18 +104,33 @@ async function assertAdmin(openid) {
 
 async function fetchAll(collectionName, projection) {
   // 服务端 SDK 单次最多 1000 条；菜多时比 100 条一页少 9 成往返。
+  // 按 _id 排序保证 skip 分页稳定，超过 1000 条时不会漏读或重复。
   const pageSize = 1000;
   const items = [];
   let offset = 0;
   while (true) {
     let query = db.collection(collectionName);
     if (projection) query = query.field(projection);
-    const result = await query.skip(offset).limit(pageSize).get();
+    const result = await query.orderBy('_id', 'asc').skip(offset).limit(pageSize).get();
     items.push(...result.data);
     if (result.data.length < pageSize) break;
     offset += pageSize;
   }
   return items;
+}
+
+// 只读取指定文档（按 _id），每批 100 个 ID，避免为几道菜扫整张表。
+async function fetchByIds(collectionName, ids, projection) {
+  const uniqueIds = [...new Set((ids || []).filter(id => typeof id === 'string' && id))];
+  const _ = db.command;
+  const batches = [];
+  for (let index = 0; index < uniqueIds.length; index += 100) {
+    const chunk = uniqueIds.slice(index, index + 100);
+    let query = db.collection(collectionName).where({ _id: _.in(chunk) });
+    if (projection) query = query.field(projection);
+    batches.push(query.limit(chunk.length).get().then(result => result.data));
+  }
+  return (await Promise.all(batches)).reduce((all, rows) => all.concat(rows), []);
 }
 
 function dateSortValue(value) {
@@ -146,8 +161,12 @@ function dishReferencesCategory(dish, category) {
   return Boolean(legacyCategoryName && legacyCategoryName === category.name);
 }
 
+// 只需判断引用关系和类型，不读取做法/图集等大字段。
+const DISH_REFERENCE_PROJECTION = { _id: true, id: true, name: true, type: true, categoryId: true,
+  categoryName: true, category: true };
+
 async function findCategoryReferences(category) {
-  const dishes = await fetchAll('dishes');
+  const dishes = await fetchAll('dishes', DISH_REFERENCE_PROJECTION);
   return dishes.filter(dish => dishReferencesCategory(dish, category));
 }
 
@@ -210,6 +229,9 @@ const CATALOG_WRITE_ACTIONS = new Set([
   'reorderCategories', 'seedDefaultCategories', 'seedMenuCatalog', 'importLegacyDishes', 'migrateDishesV2',
 ]);
 let catalogPayloadCache = null;
+// 读菜单时补版本号失败后，本实例 5 分钟内不再重试，避免每次请求都多一次失败的写入。
+const INITIAL_VERSION_RETRY_MS = 5 * 60 * 1000;
+let initialVersionFailedAt = 0;
 
 function summaryDish(dish) {
   const summary = { ...dish };
@@ -227,23 +249,30 @@ async function readCatalogVersion() {
   }
 }
 
-async function bumpCatalogVersion() {
+// 返回写入成功的版本号；失败时返回空串。
+async function writeCatalogVersion() {
   const version = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const write = () => db.collection(CATALOG_META_COLLECTION).doc(CATALOG_META_ID)
     .set({ data: { version, updatedAt: db.serverDate() } });
   catalogPayloadCache = null;
   try {
     await write();
+    return version;
   } catch (error) {
     try {
       await db.createCollection(CATALOG_META_COLLECTION);
       await write();
+      return version;
     } catch (retryError) {
       // 版本号只是缓存提示；写失败时客户端会一直走完整拉取，不影响正确性。
       console.warn('更新菜单版本号失败', retryError && retryError.message);
+      return '';
     }
   }
-  return version;
+}
+
+async function bumpCatalogVersion() {
+  return writeCatalogVersion();
 }
 
 async function buildPublicCatalog() {
@@ -271,7 +300,12 @@ async function buildPublicCatalog() {
 }
 
 async function getCatalog(event) {
-  const version = await readCatalogVersion();
+  // 还没有版本号（从未通过接口改过菜单）时补一个，否则实例缓存和 notModified 都不生效。
+  let version = await readCatalogVersion();
+  if (!version && Date.now() - initialVersionFailedAt > INITIAL_VERSION_RETRY_MS) {
+    version = await writeCatalogVersion();
+    if (!version) initialVersionFailedAt = Date.now();
+  }
   const knownVersion = cleanString(event.knownVersion, 100);
   if (version && knownVersion && knownVersion === version) {
     return success({ version, notModified: true });
@@ -337,6 +371,11 @@ async function listDishes(event, openid) {
     items = items.filter(item => item.dish.enabled && (!item.category || item.category.enabled));
   }
   items = items.sort(compareDishEntries).map(item => (summaryOnly ? summaryDish(item.dish) : item.dish));
+  // 管理端一次拿到菜品和分类，不再为分类单独调用一次云函数。
+  if (event.withCategories === true) {
+    const visibleCategories = includeDisabled ? categories : categories.filter(item => item.enabled);
+    return success({ items, categories: visibleCategories.sort(compareCategories) });
+  }
   return success({ items });
 }
 
@@ -436,6 +475,7 @@ async function updateDish(event, openid) {
   const touchesCover = Object.prototype.hasOwnProperty.call(patch, 'cover')
     || Object.prototype.hasOwnProperty.call(patch, 'image');
   const touchesImages = Object.prototype.hasOwnProperty.call(patch, 'images');
+  const touchesCoverThumb = Object.prototype.hasOwnProperty.call(patch, 'coverThumb');
   const touchesIngredients = Object.prototype.hasOwnProperty.call(patch, 'ingredients');
   const touchesSteps = Object.prototype.hasOwnProperty.call(patch, 'steps');
   const merged = { ...publicDish(current), ...patch };
@@ -457,6 +497,10 @@ async function updateDish(event, openid) {
     delete updateData.image;
   }
   if (!touchesImages) delete updateData.images;
+  if (!touchesCoverThumb) {
+    delete updateData.coverThumb;
+    delete updateData.coverThumbOf;
+  }
   if (!touchesIngredients) {
     delete updateData.ingredients;
     delete updateData.legacyIngredients;
@@ -524,15 +568,20 @@ async function updateCategory(event, openid) {
 
   // categoryName/category 是为旧页面保留的展示冗余字段，仅在分类改名时同步。
   // 启停、排序和类型设置不会改写 dishes.categoryId 或其他菜品数据。
+  // 按 100 个一批更新，避免菜多时一次发出几百个并发写请求被限流导致部分失败。
   if (category.name !== currentCategory.name) {
-    await Promise.all(relatedDishes.map(dish => db.collection('dishes').doc(dish._id).update({
-      data: {
-        categoryName: category.name,
-        category: category.name,
-        updatedAt: db.serverDate(),
-        updatedBy: openid,
-      },
-    })));
+    const _ = db.command;
+    const ids = relatedDishes.map(dish => dish._id).filter(Boolean);
+    for (let index = 0; index < ids.length; index += 100) {
+      await db.collection('dishes').where({ _id: _.in(ids.slice(index, index + 100)) }).update({
+        data: {
+          categoryName: category.name,
+          category: category.name,
+          updatedAt: db.serverDate(),
+          updatedBy: openid,
+        },
+      });
+    }
   }
   return success({ id: categoryId });
 }
@@ -858,25 +907,27 @@ async function createOrder(event, openid) {
   const documentId = buildOrderDocumentId(openid, input.requestId);
 
   try {
-
-    try {
-      const existing = (await db.collection('orders').doc(documentId).get()).data;
-      if (existing) return success({ order: publicOrder(existing), idempotent: true });
-    } catch (error) {
-      // Deterministic document ID means a missing document is the normal first-submit path.
-    }
-
+    // 查重、读菜品、读分类、读用户互不依赖，并行执行，少等几次数据库往返。
     const uniqueDishIds = [...new Set(input.items.map(item => item.dishId))];
-    const dishPairs = await Promise.all(uniqueDishIds.map(async dishId => {
-      try {
-        const raw = (await db.collection('dishes').doc(dishId).get()).data;
-        return [dishId, raw ? publicDish(raw) : null];
-      } catch (error) {
-        return [dishId, null];
-      }
-    }));
+    const [existing, dishPairs, rawCategories, userSnapshot] = await Promise.all([
+      db.collection('orders').doc(documentId).get()
+        .then(result => result.data || null)
+        // Deterministic document ID means a missing document is the normal first-submit path.
+        .catch(() => null),
+      Promise.all(uniqueDishIds.map(async dishId => {
+        try {
+          const raw = (await db.collection('dishes').doc(dishId).get()).data;
+          return [dishId, raw ? publicDish(raw) : null];
+        } catch (error) {
+          return [dishId, null];
+        }
+      })),
+      fetchAll('categories'),
+      getUserSnapshot(openid),
+    ]);
+    if (existing) return success({ order: publicOrder(existing), idempotent: true });
     const dishById = Object.fromEntries(dishPairs);
-    const categories = (await fetchAll('categories')).map(publicCategory);
+    const categories = rawCategories.map(publicCategory);
     const categoryById = {};
     const categoryByName = {};
     categories.forEach(category => {
@@ -900,7 +951,7 @@ async function createOrder(event, openid) {
       orderNo: generateOrderNo(openid, input.requestId, nowValue),
       requestId: input.requestId,
       userOpenId: openid,
-      userSnapshot: await getUserSnapshot(openid),
+      userSnapshot,
       items,
       ...totals,
       orderNote: input.orderNote,
@@ -916,8 +967,12 @@ async function createOrder(event, openid) {
 
     // 事务内执行“存在检查 + 创建”，确保并发重试只有一个请求真正创建订单。
     const creation = await createOrderOnce(db, documentId, data);
-    const created = await getOrderDocument(documentId);
-    return success({ order: publicOrder(created), idempotent: creation.created !== true });
+    if (creation.created === true) {
+      // 刚写入的就是 data，不必再读一次；serverDate 占位换成本地时间用于展示。
+      const createdAt = new Date(nowValue);
+      return success({ order: publicOrder({ ...data, _id: documentId, createdAt, updatedAt: createdAt }), idempotent: false });
+    }
+    return success({ order: publicOrder(await getOrderDocument(documentId)), idempotent: true });
   } catch (error) {
     if (error && error.isAppError === true) throw error;
     const existing = await findExistingOrderAfterConflict(db, documentId);
@@ -956,6 +1011,31 @@ async function getMyOpenOrderSummary(event, openid) {
   return success({ count: orderIds.length, orderIds });
 }
 
+// 「最近常点」：只在云端统计最近 30 单里的菜品次数，返回菜品 ID，不把整单下发到手机。
+const FREQUENT_ORDER_WINDOW = 30;
+async function getMyFrequentDishes(event, openid) {
+  const limit = Math.min(Math.max(Number(event.limit) || 6, 1), 20);
+  const result = await db.collection('orders')
+    .where({ userOpenId: openid })
+    .orderBy('createdAt', 'desc')
+    .field({ status: true, items: true })
+    .limit(FREQUENT_ORDER_WINDOW)
+    .get();
+  const stats = new Map();
+  result.data.forEach(order => {
+    if (!order || order.status === 'cancelled' || !Array.isArray(order.items)) return;
+    order.items.forEach(item => {
+      const dishId = item && item.dishId;
+      if (!dishId) return;
+      const entry = stats.get(dishId) || { dishId, name: cleanString(item.name, 100), count: 0 };
+      entry.count += Number(item.quantity) || 1;
+      stats.set(dishId, entry);
+    });
+  });
+  const items = Array.from(stats.values()).sort((a, b) => b.count - a.count).slice(0, limit);
+  return success({ dishIds: items.map(item => item.dishId), items });
+}
+
 async function getMyOrderDetail(event, openid) {
   const order = await getOrderDocument(event.orderId);
   assertOrderOwner(order, openid, '无权查看此订单');
@@ -992,6 +1072,18 @@ async function listManageOrders(event, openid) {
     ? db.collection('orders').where({ status })
     : db.collection('orders');
   return queryOrders(query, event, { manage: true });
+}
+
+// 厨师端角标/新单提醒只需要待确认订单的 ID。
+async function getManagePendingOrderSummary(event, openid) {
+  await assertAdmin(openid);
+  const result = await db.collection('orders')
+    .where({ status: 'pending' })
+    .field({ _id: true, id: true, orderNo: true })
+    .limit(1000)
+    .get();
+  const orderIds = [...new Set(result.data.map(item => String(item.id || item._id || item.orderNo)).filter(Boolean))];
+  return success({ count: orderIds.length, orderIds });
 }
 
 async function getManageOrderDetail(event, openid) {
@@ -1036,19 +1128,24 @@ async function getMealSetDocument(mealSetId) {
 }
 
 async function assertMealSetDishesExist(items) {
-  const dishes = await fetchAll('dishes');
+  const dishes = await fetchByIds('dishes', items.map(item => item.dishId), { _id: true, id: true });
   const existingIds = new Set(dishes.map(item => item._id || item.id).filter(Boolean));
   const missing = items.find(item => !existingIds.has(item.dishId));
   if (missing) throw appError('MEAL_SET_DISH_NOT_FOUND', `套餐商品不存在：${missing.dishId}`);
 }
 
 async function buildMealSetBundle(mealSets) {
-  const [rawDishes, rawCategories] = await Promise.all([fetchAll('dishes'), fetchAll('categories')]);
   const referencedDishIds = new Set();
   mealSets.forEach(mealSet => mealSet.items.forEach(item => referencedDishIds.add(item.dishId)));
+  // 只读套餐引用的菜，且不读做法/食材/图集；之前每次都会读出整张 dishes 表。
+  const [rawDishes, rawCategories] = await Promise.all([
+    fetchByIds('dishes', [...referencedDishIds], DISH_SUMMARY_PROJECTION),
+    fetchAll('categories'),
+  ]);
   const dishes = rawDishes
     .filter(dish => referencedDishIds.has(dish._id || dish.id))
-    .map(publicDish);
+    .map(publicDish)
+    .map(summaryDish);
   const referencedCategoryIds = new Set(dishes.map(dish => dish.categoryId).filter(Boolean));
   const referencedCategoryNames = new Set(dishes.map(dish => dish.categoryName).filter(Boolean));
   const categories = rawCategories
@@ -1152,9 +1249,11 @@ const handlers = {
   createOrder,
   listMyOrders,
   getMyOpenOrderSummary,
+  getMyFrequentDishes,
   getMyOrderDetail,
   cancelMyOrder,
   listManageOrders,
+  getManagePendingOrderSummary,
   getManageOrderDetail,
   updateOrderStatus,
   listMealSets,

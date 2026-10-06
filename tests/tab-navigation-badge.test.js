@@ -74,6 +74,7 @@ async function run() {
     require(file) {
       if (file === '../../services/auth') return {};
       if (file === '../../services/chef-order-reminder') return chefService;
+      if (file === '../../services/orders') return {};
       throw new Error(`unexpected profile dependency: ${file}`);
     },
   });

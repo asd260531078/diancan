@@ -109,6 +109,8 @@ function createEmptyForm(category) {
     categoryId: selected.id || '',
     categoryName: selected.name || '',
     cover: '',
+    coverThumb: '',
+    coverThumbOf: '',
     legacyCover: '',
     images: [],
     legacyImagesCount: 0,
@@ -149,6 +151,8 @@ function dishToForm(dish) {
     categoryId: dish.categoryId || '',
     categoryName: dish.categoryName || dish.category || '',
     cover: imageService.isCloudFileID(cover) ? cover : '',
+    coverThumb: imageService.isCloudFileID(dish.coverThumb) ? dish.coverThumb : '',
+    coverThumbOf: imageService.isCloudFileID(dish.coverThumb) ? dish.coverThumbOf || '' : '',
     legacyCover: hasLegacyCover ? cover : '',
     images: sourceImages.filter(imageService.isCloudFileID),
     legacyImagesCount: sourceImages.filter(item => !imageService.isCloudFileID(item)).length,
@@ -231,7 +235,7 @@ Page({
   async initialize() {
     this.setData({ loading: true });
     try {
-      const session = await authService.getSession(true);
+      const session = await authService.getSession(true, { maxAgeMs: 30000 });
       app.globalData.openid = session.openid;
       app.globalData.isAdmin = session.isAdmin;
       if (!session.isAdmin) {
@@ -754,11 +758,19 @@ Page({
     this.setData({ uploading: true });
     try {
       wx.showLoading({ title: '上传中', mask: true });
-      const purpose = this.data.form.type === 'drink' ? 'drink-cover' : 'dish-cover';
-      const result = await imageService.uploadImage(paths[0], purpose);
+      const isDrink = this.data.form.type === 'drink';
+      // 主图和菜单小图同时上传；小图失败不影响主图，菜单会退回用主图。
+      const [result, thumbFileID] = await Promise.all([
+        imageService.uploadImage(paths[0], isDrink ? 'drink-cover' : 'dish-cover'),
+        imageService.uploadThumbnail(paths[0], isDrink ? 'drink-thumb' : 'dish-thumb'),
+      ]);
       uploadedFileID = result.fileID;
       // 只有云存储上传成功并取得 fileID 后才替换原主图。
-      imageCache.setImageData(this, { 'form.cover': uploadedFileID });
+      imageCache.setImageData(this, {
+        'form.cover': uploadedFileID,
+        'form.coverThumb': thumbFileID,
+        'form.coverThumbOf': thumbFileID ? uploadedFileID : '',
+      });
     } catch (error) {
       uploadError = error;
       console.error('主图上传失败', error);

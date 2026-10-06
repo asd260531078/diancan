@@ -122,9 +122,14 @@ function peekFrequentDishIds() {
 async function getFrequentDishIds(options = {}) {
   if (!options.force && frequentCache && Date.now() - frequentCache.at < FREQUENT_TTL_MS) return frequentCache.dishIds;
   if (frequentRequest) return frequentRequest;
-  frequentRequest = listMyOrders({ limit: 30 })
-    .then(result => {
-      const dishIds = countFrequentDishIds(result.items || []);
+  // 新接口在云端统计好只回传菜品 ID；云函数未重新部署时退回拉最近 30 单本地统计。
+  frequentRequest = callFamilyApi('getMyFrequentDishes', { limit: 6 })
+    .then(data => (Array.isArray(data.dishIds) ? data.dishIds : []))
+    .catch(error => {
+      if (!error || error.code !== 'UNKNOWN_ACTION') throw error;
+      return listMyOrders({ limit: 30 }).then(result => countFrequentDishIds(result.items || []));
+    })
+    .then(dishIds => {
       frequentCache = { dishIds, at: Date.now() };
       try {
         if (typeof wx.setStorage === 'function') wx.setStorage({ key: FREQUENT_STORAGE_KEY, data: { dishIds }, fail() {} });
@@ -137,6 +142,12 @@ async function getFrequentDishIds(options = {}) {
     })
     .finally(() => { frequentRequest = null; });
   return frequentRequest;
+}
+
+/** 「我的 → 常用菜品」：云端最近订单里点得最多的菜（名称 + 份数）。 */
+async function getFrequentDishStats(options = {}) {
+  const data = await callFamilyApi('getMyFrequentDishes', { limit: options.limit || 5 });
+  return Array.isArray(data.items) ? data.items : [];
 }
 
 function invalidateFrequentDishes() {
@@ -159,6 +170,10 @@ async function listManageOrders(options = {}) {
     limit: options.limit || 20,
     offset: options.offset || 0,
   });
+}
+
+async function getManagePendingOrderSummary() {
+  return callFamilyApi('getManagePendingOrderSummary');
 }
 
 async function getManageOrderDetail(orderId) {
@@ -186,7 +201,9 @@ module.exports = {
   countMyUnfinishedOrders,
   createOrder,
   getFrequentDishIds,
+  getFrequentDishStats,
   getManageOrderDetail,
+  getManagePendingOrderSummary,
   getMyOrderDetail,
   listManageOrders,
   listMyUnfinishedOrderSummary,

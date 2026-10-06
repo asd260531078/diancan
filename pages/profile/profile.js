@@ -1,6 +1,9 @@
 const app = getApp();
 const authService = require('../../services/auth');
 const chefOrderReminder = require('../../services/chef-order-reminder');
+const orderService = require('../../services/orders');
+
+const SESSION_MAX_AGE_MS = 60 * 1000;
 
 Page({
   data: {
@@ -33,9 +36,11 @@ Page({
   },
 
   async loadIdentity() {
-    this.setData({ identityLoading: true });
+    // 有上次的身份结果就直接显示，后台再确认，不再每次切到「我的」都闪一下“读取中”。
+    const cached = typeof authService.peekSession === 'function' ? authService.peekSession() : null;
+    if (!cached) this.setData({ identityLoading: true });
     try {
-      const session = await authService.getSession(true);
+      const session = await authService.getSession(true, { maxAgeMs: SESSION_MAX_AGE_MS });
       app.globalData.openid = session.openid;
       app.globalData.isAdmin = session.isAdmin;
       let mode = app.getCurrentMode();
@@ -43,12 +48,8 @@ Page({
         mode = 'ordering';
         app.setMode(mode);
       }
-      this.setData({
-        mode,
-        isAdmin: session.isAdmin,
-        openid: session.openid,
-        identityLoading: false,
-      });
+      const patch = { mode, isAdmin: session.isAdmin, openid: session.openid, identityLoading: false };
+      if (Object.keys(patch).some(key => this.data[key] !== patch[key])) this.setData(patch);
       if (session.isAdmin) chefOrderReminder.start();
       else chefOrderReminder.reset();
     } catch (error) {
@@ -95,8 +96,26 @@ Page({
     }
   },
 
-  _showFavoriteDishes() {
-    // 订单模块尚未迁移，本轮暂时保留旧本地统计，后续改为云端用户维度统计。
+  async _showFavoriteDishes() {
+    // 订单已经在云端：按最近订单统计。旧云函数不支持时退回本机旧订单统计。
+    try {
+      wx.showLoading({ title: '统计中' });
+      const stats = await orderService.getFrequentDishStats({ limit: 5 });
+      wx.hideLoading();
+      if (!stats.length) {
+        wx.showModal({ title: '暂无常用菜品', content: '完成几笔订单后，这里会显示你最常点的菜', showCancel: false });
+        return;
+      }
+      const list = stats.map((dish, index) => `${index + 1}. ${dish.name || '已下架菜品'}（共${dish.count}份）`).join('\n');
+      wx.showModal({ title: '🍜 常用菜品 TOP5', content: list, showCancel: false });
+      return;
+    } catch (error) {
+      wx.hideLoading();
+      if (!error || error.code !== 'UNKNOWN_ACTION') {
+        wx.showToast({ title: error && error.message || '统计失败，请稍后再试', icon: 'none' });
+        return;
+      }
+    }
     const orders = wx.getStorageSync('orders') || [];
     const dishCount = {};
     orders.forEach(order => {

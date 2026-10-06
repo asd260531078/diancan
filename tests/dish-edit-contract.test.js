@@ -16,7 +16,7 @@ assert.ok(isPageRegistered(appConfig, 'package-admin/dish-edit/dish-edit'), 'dis
 assert.ok(manageJs.includes("wx.navigateTo({ url: '/package-admin/dish-edit/dish-edit' })"), 'add action must open dish-edit');
 assert.ok(manageJs.includes('/package-admin/dish-edit/dish-edit?id='), 'edit action must pass the dish id');
 assert.ok(!manageWxml.includes('form-popup'), 'manage list must not keep the old embedded form');
-assert.ok(editJs.includes('authService.getSession(true)'), 'dish-edit must verify the current session');
+assert.ok(editJs.includes('authService.getSession(true, { maxAgeMs: 30000 })'), 'dish-edit must verify the current session');
 assert.ok(editJs.includes('catalogService.createDish(payload)'), 'dish-edit must create through catalog service');
 assert.ok(editJs.includes('catalogService.updateDish(this.data.dishId, payload)'), 'dish-edit must update through catalog service');
 assert.ok(imageService.includes("name: 'uploadImage'"), 'image service must reuse uploadImage');

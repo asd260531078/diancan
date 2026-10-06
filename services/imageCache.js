@@ -5,6 +5,8 @@ const MAX_CACHE_BYTES = 50 * 1024 * 1024;
 const MAX_CONCURRENT = 2;
 const TIMEOUT_MS = 20000;
 const QUEUE_DELAY_MS = 250;
+// lastAccess 只用于空间不足时的 LRU 淘汰，一小时精度足够；不必每次命中都整份重写索引。
+const ACCESS_TOUCH_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_COVER = '/images/default-dish.png';
 let entries;
 let fileSystem;
@@ -155,9 +157,12 @@ function getCachedPath(fileID) {
   }
   log(restored.has(fileID) ? 'PERSISTENT HIT' : 'MEMORY HIT', fileID);
   restored.delete(fileID);
-  entry.lastAccess = Date.now();
   memory.set(fileID, entry);
-  saveIndex();
+  const now = Date.now();
+  if (now - (Number(entry.lastAccess) || 0) > ACCESS_TOUCH_INTERVAL_MS) {
+    entry.lastAccess = now;
+    saveIndex();
+  }
   return entry.localPath;
 }
 

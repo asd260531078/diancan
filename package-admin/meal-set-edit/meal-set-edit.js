@@ -59,17 +59,15 @@ Page({
   async initialize() {
     this.setData({ loading: true });
     try {
-      const session = await authService.getSession(true);
+      const session = await authService.getSession(true, { maxAgeMs: 30000 });
       if (!session.isAdmin) {
         wx.showToast({ title: '当前账号不是管理员', icon: 'none' });
         return;
       }
-      const requests = [
-        catalogService.listDishes({ includeDisabled: true, allowLocalFallback: false }),
-        catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false }),
-      ];
+      const requests = [catalogService.listManageCatalog()];
       if (this.editingId) requests.push(mealSetService.getManageMealSet(this.editingId));
-      const [dishResult, categoryResult, mealSetResult] = await Promise.all(requests);
+      const [dishResult, mealSetResult] = await Promise.all(requests);
+      const categoryResult = { items: dishResult.categories };
       this.catalogDishes = dishResult.items;
       this.dishById = new Map(this.catalogDishes.map(dish => [dish.id, dish]));
       const categories = [{ id: 'all', name: '全部' }, ...categoryResult.items];

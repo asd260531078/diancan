@@ -45,6 +45,14 @@ const imageCache = {
     // Like the bridge, clone the initial payload. Category taps must keep these objects.
     const projected = JSON.parse(JSON.stringify(data));
     if (projected.categories) projected.categories.forEach(category => { category.cachedDisplayIcon = category.displayIcon; });
+    // Like the real projection: only rendered cards resolve their saved local src.
+    const project = value => {
+      if (Array.isArray(value)) { value.forEach(project); return; }
+      if (!value || typeof value !== 'object') return;
+      if (typeof value.cover === 'string') value.displayCover = savedCovers.get(value.cover) || value.cover || placeholder;
+      Object.values(value).forEach(project);
+    };
+    project(projected);
     owner.setData(projected);
     if (callback) callback();
   },
@@ -96,7 +104,8 @@ async function run() {
   const cardsOf = id => menu._panelCards[menu._panelIndexByCategory.get(id)];
   assert.strictEqual(cardsOf('hot')[0], menu._dishViewCache.get('dish-0'));
   assert.strictEqual(cardsOf('hot')[0]._id, dishes[0].id, 'legacy id gets a stable view-only _id alias');
-  assert.strictEqual(cardsOf('hot')[0].displayCover, savedCovers.get(dishes[0].cover));
+  assert.strictEqual(cardsOf('hot')[0].displayCover, dishes[0].cover, 'in-memory cards keep the source; no file check per dish');
+  assert.strictEqual(calls.resolve, 0, 'menu init never checks cache files for every dish');
   assert.ok(!('steps' in cardsOf('hot')[0]), 'panels must not duplicate recipe payloads');
   assert.ok(!('images' in cardsOf('hot')[0]), 'panels must not include detail galleries');
   assert.ok(menu.dishById('dish-0').steps.length, 'full dish data remains available for existing business lookups');

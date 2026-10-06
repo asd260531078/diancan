@@ -16,6 +16,8 @@ const LEGACY_SUGAR_LEVEL_MAP = {
 function schemaError(code, message) {
   const error = new Error(message);
   error.code = code;
+  // 校验错误要把具体原因返回给管理员，且发生在写入前，不应更新菜单版本号。
+  error.isAppError = true;
   return error;
 }
 
@@ -338,6 +340,10 @@ function dishForWrite(raw = {}, category = {}, options = {}) {
     : (hasOwn(raw, 'image') ? raw.image : (options.publicRead ? DEFAULT_COVER : ''));
   const cover = cleanString(coverSource, 1000);
   assertCloudImageReference(cover, 'cover', strict);
+  // 列表用的小图；coverThumbOf 记录它由哪张主图生成，主图换了之后旧小图自动失效。
+  const coverThumb = cleanString(raw.coverThumb, 1000);
+  assertCloudImageReference(coverThumb, 'coverThumb', strict);
+  const coverThumbOf = coverThumb ? cleanString(raw.coverThumbOf, 1000) : '';
   const images = imageArray(raw.images, strict);
   const recommended = hasOwn(raw, 'recommended')
     ? booleanValue(raw, 'recommended', false, strict)
@@ -386,6 +392,8 @@ function dishForWrite(raw = {}, category = {}, options = {}) {
     category: categoryName,
     cover,
     image: cover,
+    coverThumb,
+    coverThumbOf,
     images,
     description: cleanString(raw.description, 1000),
     tags: stringArray(raw.tags, 30, 50, strict, 'tags'),

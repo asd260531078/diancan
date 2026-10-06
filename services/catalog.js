@@ -127,11 +127,11 @@ function readSnapshot() {
 }
 
 function getCachedCatalog() {
-  if (memory) return { dishes: memory.dishes, categories: memory.categories };
+  if (memory) return { version: memory.version || '', dishes: memory.dishes, categories: memory.categories };
   const snapshot = readSnapshot();
   return snapshot
-    ? { dishes: snapshot.dishes, categories: snapshot.categories }
-    : { dishes: [], categories: [] };
+    ? { version: snapshot.version || '', dishes: snapshot.dishes, categories: snapshot.categories }
+    : { version: '', dishes: [], categories: [] };
 }
 
 function rememberCatalog(catalog, source) {
@@ -267,6 +267,27 @@ async function listDishes(options = {}) {
   return { items: catalog.dishes, source: catalog.source };
 }
 
+/** 管理端：一次云函数调用拿到全部菜品摘要（含停用）和全部分类。 */
+async function listManageCatalog() {
+  const data = await callFamilyApi('listDishes', { includeDisabled: true, summary: true, withCategories: true });
+  const items = (data.items || []).map(normalizeDish);
+  // 旧云函数不返回分类时再单独取一次。
+  const rawCategories = Array.isArray(data.categories)
+    ? data.categories
+    : (await callFamilyApi('listCategories', { includeDisabled: true })).items || [];
+  return { items, categories: rawCategories.map(normalizeCategory), source: 'cloud' };
+}
+
+/** 本机是否还留有旧版菜品数据（只看长度，不做整表规范化）。 */
+function hasLocalDishes() {
+  try {
+    const dishes = wx.getStorageSync('dishes');
+    return Array.isArray(dishes) && dishes.length > 0;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function listCategories(options = {}) {
   const includeDisabled = Boolean(options.includeDisabled);
   if (includeDisabled) {
@@ -332,12 +353,14 @@ module.exports = {
   deleteDish,
   getLocalDishes,
   getCachedCatalog,
+  hasLocalDishes,
   getDish,
   getDishDetail,
   getCatalogRevision,
   importLegacyDishes,
   listCategories,
   listDishes,
+  listManageCatalog,
   loadCatalog,
   migrateDishesV2,
   peekDish,

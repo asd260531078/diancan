@@ -45,7 +45,7 @@ Page({
   async initialize() {
     this.setData({ loading: true });
     try {
-      const session = await authService.getSession(true);
+      const session = await authService.getSession(true, { maxAgeMs: 30000 });
       app.globalData.openid = session.openid;
       app.globalData.isAdmin = session.isAdmin;
       if (!session.isAdmin) {

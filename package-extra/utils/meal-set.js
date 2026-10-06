@@ -2,6 +2,7 @@ const { DEFAULT_COVER, normalizeCategory, normalizeDish } = require('../../utils
 const { getDishRestriction } = require('../../utils/dish-status');
 const { normalizeUnitPrice } = require('../../utils/cart');
 const { formatMoney } = require('../../utils/money');
+const { listCover } = require('../../utils/detail-presentation');
 
 const MAX_MEAL_SET_ITEMS = 20;
 const MAX_MEAL_SET_QUANTITY = 99;
@@ -95,7 +96,7 @@ function decorateMealSet(rawMealSet = {}, rawDishes = [], rawCategories = []) {
       ...item,
       dish,
       name: dish.name,
-      cover: dish.cover || dish.image || DEFAULT_COVER,
+      cover: listCover(dish) || DEFAULT_COVER,
       unitPrice,
       lineAmount: unitPrice === null ? null : unitPrice * item.quantity,
       canOrder: !restriction && !categoryDisabled,

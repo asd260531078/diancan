@@ -1,4 +1,5 @@
 const cartUtils = require('../utils/cart');
+const { listCover } = require('../utils/detail-presentation');
 
 const STORAGE_KEY = 'family_cart_v2';
 const LEGACY_STORAGE_KEY = 'cart';
@@ -63,7 +64,8 @@ function buildDishCartItem(dish = {}, selectedOptions = {}, quantity = 1) {
     dishId: dish.id || dish._id,
     name: dish.name,
     type: dish.type,
-    cover: dish.cover || dish.image || '',
+    // 购物车里只显示小图。
+    cover: listCover(dish),
     unitPrice: dish.price,
     quantity,
     selectedOptions,

@@ -7,7 +7,7 @@ const orderService = require('../../services/orders');
 const { dishStatusView, getDishRestriction } = require('../../utils/dish-status');
 const { hasDrinkOptions, hasFoodOptions } = require('../../utils/cart');
 const { formatMoney } = require('../../utils/money');
-const { DEFAULT_COVER, safeDetailImage } = require('../../utils/detail-presentation');
+const { DEFAULT_COVER, listCover, safeDetailImage } = require('../../utils/detail-presentation');
 const { getMenuCategoryIcon } = require('../../config/menu-category-icons');
 
 const SPICY_TEXT = {
@@ -75,8 +75,10 @@ function decorateDish(dish, cachedCover) {
     displayTags: tags.filter(tag => tag !== '招牌' && tag !== '推荐').slice(0, 3),
     spicyText: SPICY_TEXT[dish.spicyLevel] || '',
     canAddToCart: status.canOrder,
+    // 这里只放原始来源，不检查本地缓存文件：真正显示的 src 由 setMenuImageData 在渲染时
+    // 只为已渲染的卡片解析一次。之前每次初始化都会为全部菜品各做两次同步文件检查。
     displayCover: cachedCover === undefined
-      ? imageCache.getDisplayImage(safeDetailImage(dish.cover || dish.image, '菜单图片', dish.id) || DEFAULT_COVER)
+      ? safeDetailImage(listCover(dish), '菜单图片', dish.id) || DEFAULT_COVER
       : cachedCover,
     nameSegments: plainSegments(dish.name),
   };
@@ -86,10 +88,13 @@ function cardView(dish) {
   // Cards carry only small UI fields; option sheets and cart look up the full
   // dish by id. Recipes/steps/galleries never enter page data.
   const view = {};
-  ['id', '_id', 'name', 'cover', 'legacyCover', 'image', 'displayCover', 'description',
+  // 不带 image：它与 cover 相同，多一个字段渲染时就多一次图片绑定和缓存文件检查。
+  ['id', '_id', 'name', 'cover', 'legacyCover', 'displayCover', 'description',
     'price', 'signature', 'recommended', 'spicyText', 'displayTags', 'canAddToCart',
     'restrictionText', 'restrictionKey', 'categoryId', 'nameSegments', 'eagerImage']
     .forEach(key => { if (dish[key] !== undefined) view[key] = dish[key]; });
+  // 卡片显示小图（有匹配的缩略图时），详情页仍用主图。
+  if (view.cover) view.cover = listCover(dish);
   // Normalize the UI projection only; raw dish/category fields stay unchanged.
   view.categoryId = categoryIdValue(dish.categoryId);
   return view;
@@ -154,7 +159,7 @@ Page({
     }
     const cached = catalogService.getCachedCatalog();
     if (cached.dishes.length) {
-      this.applyCatalogView(cached.dishes, cached.categories);
+      this.applyCatalogView(cached.dishes, cached.categories, cached.version);
       this.setData({ catalogLoading: false });
     }
   },
@@ -223,8 +228,10 @@ Page({
 
   onDishImageLoad(event) {
     // 只有真正渲染出来并加载成功的图片才进入后台缓存队列。
-    const source = event.currentTarget.dataset.cover;
+    const { cover: source, src } = event.currentTarget.dataset;
     if (!source) return;
+    // 显示的已经是本地缓存/默认图时无需再排队（排队前还要做一次同步文件检查）。
+    if (src && src !== source) return;
     if (!this._seenCoverIDs) this._seenCoverIDs = new Set();
     if (this._seenCoverIDs.has(source)) return;
     this._seenCoverIDs.add(source);
@@ -310,11 +317,21 @@ Page({
   },
 
   // 统一通过 catalog service 读取。云函数未部署时，service 会只读回退到本机旧数据。
-  applyCatalogView(dishItems, categoryItems) {
-    return this.initMenuState(categoryItems, dishItems);
+  applyCatalogView(dishItems, categoryItems, version = '') {
+    return this.initMenuState(categoryItems, dishItems, version);
   },
 
-  initMenuState(categoryItems, dishItems) {
+  // 判断云端目录与当前显示的是否相同：都有版本号时直接比版本，不必整份序列化比较。
+  isSameCatalog(catalog) {
+    const source = this._catalogSource;
+    if (!source) return false;
+    if (catalog.version && source.version) return catalog.version === source.version;
+    if (!this._catalogSignature) return false;
+    const signature = JSON.stringify([catalog.dishes, catalog.categories]);
+    return signature === this._catalogSignature;
+  },
+
+  initMenuState(categoryItems, dishItems, version = '') {
     const categories = [{ id: ALL_CATEGORY_ID, name: '全部' }, ...categoryItems
       .filter(category => category.enabled !== false && categoryIdOf(category)
         && categoryIdOf(category) !== ALL_CATEGORY_ID)].map(category => ({
@@ -368,7 +385,9 @@ Page({
       };
     });
     this._panelIndexByCategory = new Map(categoryPanels.map((panel, index) => [panel.categoryId, index]));
-    this._catalogSignature = JSON.stringify([dishItems, categoryItems]);
+    this._catalogSource = { dishes: dishItems, categories: categoryItems, version: version || '' };
+    // 有版本号时按版本比较，不再整份序列化；旧接口没有版本号才保留内容签名。
+    this._catalogSignature = version ? '' : JSON.stringify([dishItems, categoryItems]);
     this._dishes = dishes;
     this._dishById = new Map(dishes.map(dish => [dish.id, dish]));
     this._cardById = new Map(cards.map(card => [card.id, card]));
@@ -414,16 +433,17 @@ Page({
     const request = (async () => {
       try {
         const catalog = await catalogService.loadCatalog({ force: Boolean(options.force) });
-        const signature = JSON.stringify([catalog.dishes, catalog.categories]);
         const currentCategoryAvailable = this.data.activeCategoryId === ALL_CATEGORY_ID
           || catalog.categories.some(item => item.enabled !== false && categoryIdOf(item) === this.data.activeCategoryId);
         this._lastCatalogRevision = revision;
         this._catalogLoaded = true;
-        if (hadDishes && signature === this._catalogSignature && currentCategoryAvailable) {
+        if (hadDishes && currentCategoryAvailable && this.isSameCatalog(catalog)) {
+          // 内容相同但版本号是新的（例如本地快照第一次拿到版本号）时记下来，下次直接比版本。
+          if (catalog.version) this._catalogSource.version = catalog.version;
           if (this.data.catalogError) this.setData({ catalogError: false });
           return this._dishes;
         }
-        return this.applyCatalogView(catalog.dishes, catalog.categories);
+        return this.applyCatalogView(catalog.dishes, catalog.categories, catalog.version);
       } catch (error) {
         this.setData({ catalogError: true });
         console.error('加载菜单失败', error);

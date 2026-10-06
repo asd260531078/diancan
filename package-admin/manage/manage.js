@@ -5,9 +5,20 @@ const catalogService = require('../../services/catalog');
 const imageCache = require('../../services/imageCache');
 const chefOrderReminder = require('../../services/chef-order-reminder');
 const notifySubscription = require('../../services/order-notify-subscription');
+const imageService = require('../../services/image');
+const { listCover } = require('../../utils/detail-presentation');
 
 // 菜多时分批渲染，滚到底再追加。
 const MANAGE_PAGE_SIZE = 30;
+const THUMB_BACKFILL_CONCURRENCY = 2;
+
+// 有云端主图、但还没有与之匹配的菜单小图。
+function needsThumbnail(dish) {
+  return imageService.isCloudFileID(dish.cover) && !(dish.coverThumb && dish.coverThumbOf === dish.cover);
+}
+
+// 本机没有改过菜单时，这段时间内返回本页不再重新拉取。
+const MANAGE_REFRESH_MS = 30 * 1000;
 
 const QUICK_STATUS_MESSAGES = {
   enabled: { true: '已上架', false: '已下架' },
@@ -27,6 +38,7 @@ Page({
     searchKey: '',
     totalCount: 0,
     hasMore: false,
+    missingThumbCount: 0,
     notifyConfigured: notifySubscription.isConfigured(),
   },
 
@@ -49,10 +61,16 @@ Page({
   async initialize() {
     // 已加载过：后台静默刷新，不再整页变成“正在连接”。
     const silent = this.data.isAuthorized && Array.isArray(this._allDishes);
-    this.setData({ loading: !silent, hasLegacyDishes: catalogService.getLocalDishes().length > 0 });
+    if (silent && this._loadedRevision === catalogService.getCatalogRevision()
+      && Date.now() - this._loadedAt < MANAGE_REFRESH_MS) {
+      chefOrderReminder.start();
+      return;
+    }
+    const hasLegacyDishes = catalogService.hasLocalDishes();
+    if (!silent || hasLegacyDishes !== this.data.hasLegacyDishes) this.setData({ loading: !silent, hasLegacyDishes });
     try {
       // 页面结果仅控制显示；所有写操作仍由云函数 assertAdmin 再校验。
-      const session = await authService.getSession(true);
+      const session = await authService.getSession(true, { maxAgeMs: 30000 });
       app.globalData.openid = session.openid;
       app.globalData.isAdmin = session.isAdmin;
       if (!session.isAdmin) {
@@ -78,17 +96,17 @@ Page({
   },
 
   async loadCatalog() {
-    const [dishResult, firstCategoryResult] = await Promise.all([
-      catalogService.listDishes({ includeDisabled: true, allowLocalFallback: false }),
-      catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false }),
-    ]);
-    let categoryResult = firstCategoryResult;
-    if (categoryResult.items.length === 0) {
+    const revision = catalogService.getCatalogRevision();
+    const result = await catalogService.listManageCatalog();
+    let categories = result.categories;
+    if (categories.length === 0) {
       await catalogService.seedDefaultCategories();
-      categoryResult = await catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false });
+      categories = (await catalogService.listCategories({ includeDisabled: true, allowLocalFallback: false })).items;
     }
-    this._allDishes = dishResult.items;
-    this.setData({ categories: categoryResult.items });
+    this._allDishes = result.items;
+    this._loadedRevision = revision;
+    this._loadedAt = Date.now();
+    this.setData({ categories });
     this.renderDishList();
   },
 
@@ -103,8 +121,10 @@ Page({
     const list = this.filteredDishes();
     const count = Math.max(minCount, Math.min(this.data.dishes.length, list.length));
     imageCache.setImageData(this, {
-      dishes: list.slice(0, count),
+      // 列表显示小图；image 与 cover 相同，统一成小图避免多一次图片绑定。
+      dishes: list.slice(0, count).map(dish => ({ ...dish, cover: listCover(dish), image: listCover(dish) })),
       totalCount: list.length,
+      missingThumbCount: (this._allDishes || []).filter(needsThumbnail).length,
       hasMore: list.length > count,
       loading: false,
     });
@@ -193,6 +213,55 @@ Page({
       wx.showToast({ title: error.message || '操作失败', icon: 'none' });
       await this.loadCatalog();
     }
+  },
+
+  // 旧菜品只有大图：逐个下载主图、生成小图并写回，之后顾客菜单加载会快很多。
+  onBackfillThumbnails() {
+    if (!this.data.isAuthorized || this._backfilling) return;
+    const targets = (this._allDishes || []).filter(needsThumbnail);
+    if (!targets.length) return;
+    wx.showModal({
+      title: '补菜单小图',
+      content: `将为 ${targets.length} 道菜生成菜单用的小图（不改动原图），菜多时需要一两分钟，请保持在本页。`,
+      success: async result => {
+        if (!result.confirm) return;
+        this._backfilling = true;
+        let done = 0;
+        let failed = 0;
+        let next = 0;
+        const showProgress = () => wx.showLoading({ title: `生成中 ${done}/${targets.length}`, mask: true });
+        showProgress();
+        const worker = async () => {
+          while (next < targets.length) {
+            const dish = targets[next];
+            next += 1;
+            try {
+              const purpose = dish.type === 'drink' ? 'drink-thumb' : 'dish-thumb';
+              const thumb = await imageService.uploadThumbnailForCloudFile(dish.cover, purpose);
+              if (!thumb) throw new Error('生成失败');
+              await catalogService.updateDish(dish.id, { coverThumb: thumb, coverThumbOf: dish.cover });
+            } catch (error) {
+              failed += 1;
+              console.warn('补菜单小图失败', dish.id, error);
+            }
+            done += 1;
+            showProgress();
+          }
+        };
+        try {
+          await Promise.all(Array.from({ length: Math.min(THUMB_BACKFILL_CONCURRENCY, targets.length) }, worker));
+          await this.loadCatalog();
+        } finally {
+          this._backfilling = false;
+          wx.hideLoading();
+        }
+        wx.showModal({
+          title: '完成',
+          content: failed ? `已完成 ${targets.length - failed} 道，${failed} 道失败，可稍后再试。` : `已为 ${targets.length} 道菜生成小图。`,
+          showCancel: false,
+        });
+      },
+    });
   },
 
   onImportLegacy() {

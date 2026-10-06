@@ -4,6 +4,8 @@ const POLL_INTERVAL_MS = 15000;
 // 实时监听正常时，轮询只作为兜底，降到每分钟一次。
 const WATCH_FALLBACK_POLL_MS = 60000;
 const PAGE_SIZE = 50;
+// 页面切换会反复调用 start()；这段时间内刚刷新过就不再请求。
+const START_REFRESH_THROTTLE_MS = 5000;
 
 let timer = null;
 let active = false;
@@ -50,6 +52,19 @@ function publish(pendingIds) {
 }
 
 async function fetchPendingOrderIds() {
+  // 新接口只返回 ID；云函数还没重新部署时退回旧的分页拉整单。
+  if (typeof orderService.getManagePendingOrderSummary === 'function') {
+    try {
+      const summary = await orderService.getManagePendingOrderSummary();
+      return Array.from(new Set((summary.orderIds || []).map(String)));
+    } catch (error) {
+      if (!error || error.code !== 'UNKNOWN_ACTION') throw error;
+    }
+  }
+  return scanPendingOrderIds();
+}
+
+async function scanPendingOrderIds() {
   const ids = [];
   let offset = 0;
   for (;;) {
@@ -154,7 +169,10 @@ function poll() {
 }
 
 function start() {
-  if (active) return refresh();
+  if (active) {
+    if (Date.now() - lastRefreshAt < START_REFRESH_THROTTLE_MS) return Promise.resolve(refreshRequest || snapshot());
+    return refresh();
+  }
   active = true;
   const initialRefresh = refresh();
   timer = setInterval(() => poll(), POLL_INTERVAL_MS);

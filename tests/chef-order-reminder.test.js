@@ -8,6 +8,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 async function run() {
   let pendingOrders = [{ id: 'A' }, { id: 'B' }];
+  let legacyServer = false;
+  const calls = [];
   let vibrateCount = 0;
   let toastCount = 0;
   let intervalMs = 0;
@@ -21,7 +23,17 @@ async function run() {
     require(file) {
       assert.strictEqual(file, './orders');
       return {
+        async getManagePendingOrderSummary() {
+          calls.push('summary');
+          if (legacyServer) {
+            const error = new Error('未知操作');
+            error.code = 'UNKNOWN_ACTION';
+            throw error;
+          }
+          return { count: pendingOrders.length, orderIds: pendingOrders.map(item => item.id) };
+        },
         async listManageOrders(options) {
+          calls.push('list');
           assert.strictEqual(options.status, 'pending');
           return { items: pendingOrders, hasMore: false, nextOffset: null };
         },
@@ -54,15 +66,20 @@ async function run() {
   reminder.subscribe(state => { latest = state; });
   await reminder.start();
   assert.strictEqual(intervalMs, 15000);
+  const callsAfterFirstStart = calls.length;
   await reminder.start();
   assert.strictEqual(intervalCount, 1, 're-entering a page must not create another timer');
+  assert.strictEqual(calls.length, callsAfterFirstStart, 're-entering within a few seconds reuses the last refresh');
+  assert.ok(!calls.includes('list'), 'pending IDs come from the lightweight summary');
   assert.strictEqual(latest.pendingCount, 2);
   assert.strictEqual(latest.pendingBadge, '2');
   assert.strictEqual(vibrateCount, 0, 'first load must only establish the baseline');
   assert.strictEqual(toastCount, 0, 'first load must not toast historical pending orders');
 
   pendingOrders = [{ id: 'A' }, { id: 'B' }, { id: 'C' }];
+  legacyServer = true; // 旧云函数：退回分页拉取。
   await reminder.refresh();
+  assert.ok(calls.includes('list'));
   assert.strictEqual(latest.pendingCount, 3);
   assert.strictEqual(vibrateCount, 1);
   assert.strictEqual(toastCount, 1);

@@ -287,8 +287,10 @@ function buildOrderItem(dish, intentItem) {
   const lineAmount = unitPrice === null
     ? null
     : roundMoney(unitPrice * intentItem.quantity);
-  const cover = typeof dish.cover === 'string' && dish.cover.startsWith('cloud://')
-    ? dish.cover
+  // 订单里的菜品图只显示成小图：有与当前主图匹配的缩略图时用缩略图。
+  const listCover = dish.coverThumb && dish.coverThumbOf === dish.cover ? dish.coverThumb : dish.cover;
+  const cover = typeof listCover === 'string' && listCover.startsWith('cloud://')
+    ? listCover
     : '';
   return {
     dishId: cleanString(dish.id || dish._id, 100),
